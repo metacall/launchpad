@@ -354,7 +354,7 @@ export default function DashboardPage() {
                 <EmptyLaunchpadCard
                   key={planId}
                   plan={planId}
-                  onClick={() => navigate('/deployments/new')}
+                  onClick={() => navigate(deployments.length > 0 ? '/deployments/new' : '/plans')}
                 />
               ),
             )}
