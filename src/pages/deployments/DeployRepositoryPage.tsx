@@ -405,9 +405,8 @@ export default function DeployRepositoryPage() {
                         return next;
                       })
                     }
-                    className={`flex items-center justify-center w-8 h-8 text-slate-400 hover:text-slate-700 transition-all ${
-                      hiddenValues.has(row.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    }`}
+                    className={`flex items-center justify-center w-8 h-8 text-slate-400 hover:text-slate-700 transition-all ${hiddenValues.has(row.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
                     title={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
                   >
                     {hiddenValues.has(row.id) ? <EyeOff size={13} /> : <Eye size={13} />}
@@ -433,21 +432,20 @@ export default function DeployRepositoryPage() {
 
         {/* Error banner */}
         {deployError && (
-          <div className="flex items-start gap-3 px-4 py-3.5 bg-red-50 text-sm text-red-700 shadow-sm animate-in fade-in">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5 text-red-500" />
-            <div className="flex-1">
-              <strong className="font-bold">Deployment failed — </strong>
-              {deployError}
+          <div className="flex items-center justify-between text-xs text-red-600 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} />
+              <span>{deployError}</span>
             </div>
             <button
               onClick={() => setDeployError('')}
-              className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
+              className="text-red-400 hover:text-red-600 transition-colors p-1"
+              aria-label="Clear error"
             >
               <X size={14} />
             </button>
           </div>
         )}
-
         {/*  Actions  */}
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-6">
           <button

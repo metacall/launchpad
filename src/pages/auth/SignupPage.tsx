@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function SignupPage() {
@@ -82,7 +82,7 @@ export default function SignupPage() {
               onChange={e => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-0 py-2 bg-transparent border-0 border-b border-gray-300 text-gray-800 placeholder-gray-500 outline-none ring-0 focus:ring-0 focus:border-blue-500 transition-colors duration-200"
+              className="w-full auth-input transition-colors duration-200"
             />
           </div>
 
@@ -99,7 +99,7 @@ export default function SignupPage() {
               onChange={e => setAlias(e.target.value)}
               required
               autoComplete="username"
-              className="w-full px-0 py-2 bg-transparent border-0 border-b border-gray-300 text-gray-800 placeholder-gray-500 outline-none ring-0 focus:ring-0 focus:border-blue-500 transition-colors duration-200"
+              className="w-full auth-input transition-colors duration-200"
             />
           </div>
 
@@ -117,7 +117,7 @@ export default function SignupPage() {
                 onChange={e => setPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-0 py-2 pr-8 bg-transparent border-0 border-b border-gray-300 text-gray-800 placeholder-gray-500 outline-none ring-0 focus:ring-0 focus:border-blue-500 transition-colors duration-200"
+                className="w-full auth-input pr-8 transition-colors duration-200"
               />
               <button
                 type="button"
@@ -145,7 +145,7 @@ export default function SignupPage() {
                 onChange={e => setConfirm(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-0 py-2 pr-8 bg-transparent border-0 border-b border-gray-300 text-gray-800 placeholder-gray-500 outline-none ring-0 focus:ring-0 focus:border-blue-500 transition-colors duration-200"
+                className="w-full auth-input pr-8 transition-colors duration-200"
               />
               <button
                 type="button"
@@ -196,8 +196,16 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <div className="py-2 pl-3 mt-4 text-xs text-red-600 bg-red-50 border-l-2 border-red-500">
-              {error}
+            <div className="flex items-center justify-start text-xs text-red-600 animate-in fade-in slide-in-from-top-2 duration-300">
+              <X size={12} className="mt-0.5 mr-2 text-red-500" />
+              <span> {error}</span>
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="ml-2 hover:text-red-800 transition-colors p-1"
+                aria-label="Clear error"
+              >
+              </button>
             </div>
           )}
 

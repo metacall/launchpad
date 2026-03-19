@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X } from 'lucide-react';
 import { api } from '@/api/client';
 import { Plans } from '@metacall/protocol/plan';
 import { Spinner } from '@/components/ui/Spinner';
@@ -414,11 +414,10 @@ export default function DeployWizardPage() {
                                 return next;
                               })
                             }
-                            className={`p-1 text-slate-400 hover:text-slate-600 transition-all ${
-                              hiddenValues.has(row.id)
+                            className={`p-1 text-slate-400 hover:text-slate-600 transition-all ${hiddenValues.has(row.id)
                                 ? 'opacity-100'
                                 : 'opacity-0 group-hover:opacity-100'
-                            }`}
+                              }`}
                             title={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
                           >
                             {hiddenValues.has(row.id) ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -441,16 +440,21 @@ export default function DeployWizardPage() {
             {/* Footer Action */}
             <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50/80 mt-auto flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="flex-1 w-full">
-                {deployError && (
-                  <div className="p-4 bg-white text-slate-700 text-[13px] flex items-start gap-3 w-full max-w-125">
-                    <div className="flex-1">
-                      <strong className="block font-bold text-red-600 mb-1">
-                        Deployment Error
-                      </strong>
-                      {deployError}
-                    </div>
+              {deployError && (
+                <div className="w-full max-w-5xl flex items-center justify-between text-xs text-red-600 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-20">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    <span>{deployError}</span>
                   </div>
-                )}
+                  <button
+                    onClick={() => setDeployError('')}
+                    className="text-red-400 hover:text-red-600 transition-colors p-1"
+                    aria-label="Clear error"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
               </div>
               <button
                 onClick={handleDeploy}

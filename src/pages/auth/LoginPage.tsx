@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
@@ -62,7 +62,7 @@ export default function LoginPage() {
                 placeholder="Email"
                 required
                 autoComplete="email"
-                className="peer w-full px-0 py-2 bg-transparent border-0 border-b border-gray-300 text-slate-800 placeholder-transparent outline-none ring-0 focus:ring-0 focus:border-blue-500 transition-colors duration-300"
+                className="peer w-full auth-input placeholder-transparent transition-colors duration-300"
               />
               <label
                 htmlFor="email"
@@ -82,7 +82,7 @@ export default function LoginPage() {
                 placeholder="Password"
                 required
                 autoComplete="current-password"
-                className="peer w-full px-0 py-2 pr-8 bg-transparent border-0 border-b border-gray-300 text-slate-800 placeholder-transparent outline-none ring-0 focus:ring-0 focus:border-blue-500 transition-colors duration-300"
+                className="peer w-full auth-input pr-8 placeholder-transparent transition-colors duration-300"
               />
               <label
                 htmlFor="password"
@@ -101,11 +101,19 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {error && (
-              <div className="mb-4 py-2 text-xs text-red-600">
-                {error}
-              </div>
-            )}
+          {error && (
+            <div className="flex items-center justify-start text-xs text-red-600 animate-in fade-in slide-in-from-top-2 duration-300">
+              <X size={14} className="mt-0.5 mr-2 text-red-500" />
+              <span> {error}</span>
+              <button
+                type="button"
+                onClick={() => setError('')}
+                className="ml-2 hover:text-red-800 transition-colors p-1"
+                aria-label="Clear error"
+              >
+              </button>
+            </div>
+          )}
 
             <div className="mt-8 flex justify-end">
               <button

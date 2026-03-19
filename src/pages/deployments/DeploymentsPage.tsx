@@ -140,13 +140,17 @@ export default function DeploymentsPage() {
 
           {/* Error banner */}
           {error && (
-            <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-50 border-l-4 border-red-500 text-sm font-semibold text-red-700 shadow-sm">
-              <span>{error}</span>
+            <div className="flex items-center justify-between gap-3 text-xs text-red-600 mb-2 animate-in fade-in slide-in-from-top-1 duration-300">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={14} />
+                <span>{error}</span>
+              </div>
               <button
                 onClick={() => setDeleteError(null)}
-                className="hover:bg-red-100 p-1 transition-colors"
+                className="hover:text-red-800 p-1 transition-colors"
+                aria-label="Clear error"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
           )}

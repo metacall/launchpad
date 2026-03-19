@@ -53,21 +53,24 @@ export function ChatInterface() {
         ))}
       </div>
 
-      <div className="p-3 border-t border-gray-100 bg-white">
-        <div className="flex items-center ml-1 rounded-md overflow-hidden transition-colors p-1">
-          <input
-            type="text"
-            placeholder="Type your message..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            className="flex-1 px-3 py-2 text-sm outline-none bg-transparent"
-          />
+      <div className="p-4 bg-white mt-auto">
+        <div className="flex items-center w-full">
+          <div className="flex-1 flex items-center border border-gray-200 rounded-lg px-5 py-2.5 bg-white">
+            <input
+              type="text"
+              placeholder="Type your message..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              className="w-full text-sm outline-none bg-transparent placeholder-gray-400 text-gray-700 font-medium"
+            />
+          </div>
           <button
             onClick={handleSend}
-            className="p-2 bg-blue-600 text-white hover:bg-blue-700 transition-colors rounded shrink-0 mr-1"
+            className="w-10 h-10 bg-blue-500 hover:bg-blue-600 transition-colors flex items-center justify-center text-white shrink-0 shadow-sm"
+            style={{ paddingLeft: '2px' }}
           >
-            <Send size={16} />
+            <Send size={20} />
           </button>
         </div>
       </div>
