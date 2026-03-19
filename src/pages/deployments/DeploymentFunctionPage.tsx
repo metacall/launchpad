@@ -256,6 +256,33 @@ export default function DeploymentDetailPage() {
               </InfoRow>
             </div>
 
+            {/* Packages / Files */}
+            <div className="flex flex-col gap-3">
+              <SectionTitle icon={<Box size={13} />} title="Packages" />
+              {Object.entries(deployment.packages ?? {}).length === 0 ? (
+                 <div className="p-3 bg-slate-100/50 rounded border border-slate-200">
+                    <p className="text-xs text-slate-500">No packages deployed</p>
+                 </div>
+              ) : (
+                <div className="flex flex-col gap-3 mt-1">
+                  {Object.entries(deployment.packages ?? {}).map(([lang, handles]) => (
+                     handles.length > 0 && (
+                      <InfoRow key={lang} label={lang}>
+                        <div className="flex flex-col gap-1.5 mt-0.5">
+                          {handles.map(h => (
+                            <div key={h.name} className="flex items-center justify-between px-2.5 py-1.5 bg-white border border-slate-200 rounded-sm">
+                              <span className="text-xs font-mono text-slate-700 truncate" title={h.name}>{h.name}</span>
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 rounded">{h.scope?.funcs?.length ?? 0} fns</span>
+                            </div>
+                          ))}
+                        </div>
+                      </InfoRow>
+                    )
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Configuration */}
             <div className="flex flex-col gap-3">
               <SectionTitle icon={<Server size={13} />} title="Configuration" />

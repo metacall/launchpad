@@ -257,12 +257,9 @@ export default function DashboardPage() {
   );
   const emptyCount = deployments.filter(d => !d.suffix || d.status === 'create').length;
 
-  // Build one slot per plan occupied slots show the real deployment, empty ones show placeholder
-  const launchpadSlots = PLAN_ORDER.map(planId => {
-    const dep = deployments.find(
-      d =>
-        ((d as unknown as Record<string, unknown>).plan as string | undefined) === planId,
-    );
+  // Fill up to 3 slots with actual deployments, empty ones show placeholder
+  const launchpadSlots = PLAN_ORDER.map((planId, index) => {
+    const dep = deployments[index];
     return { planId, dep: dep ?? null };
   });
 

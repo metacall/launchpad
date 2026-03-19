@@ -161,7 +161,9 @@ export function useLogs(suffix: string, prefix: string, pollIntervalMs = 5000): 
     refetch: () => {
       failCountRef.current = 0;
       setError(null);
+      setLoading(true);
       setTick(t => t + 1);
     },
   };
 }
+
