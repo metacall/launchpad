@@ -177,7 +177,7 @@ export default function DeployWizardPage() {
 
       await api.deploy(deployName, envVars, plan || Plans.Essential, 'Package');
 
-      navigate('/deployments');
+      navigate('/');
     } catch (error) {
       console.error('Deploy failed', error);
       const err = error as { response?: { data?: string }; message?: string };

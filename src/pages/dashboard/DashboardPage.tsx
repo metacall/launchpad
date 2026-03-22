@@ -3,14 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useDeployments } from '@/hooks/useDeployments';
 import { api } from '@/api/client';
 import type { Deployment } from '@/types';
-import {
-  Plus,
-  ExternalLink,
-  Trash2,
-} from 'lucide-react';
+import { AlertTriangle, Plus, RefreshCw, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { DeleteModal } from '@/components/ui/DeleteModal';
+import { DeploymentTable } from '@/components/features/deployments/DeploymentTable';
 
 // Plan config
 const PLAN_CLASSES: Record<string, { headerBg: string; plusHover: string }> = {
@@ -118,104 +114,32 @@ function EmptyLaunchpadCard({ plan, onClick, isAlreadyUsed }: { plan: string; on
   );
 }
 
-// Recent deployments table
-function RecentDeploymentsTable({ deployments, onDelete }: { deployments: Deployment[]; onDelete: (dep: Deployment) => void }) {
-  const navigate = useNavigate();
-  const recent = deployments.slice(0, 5);
-  if (recent.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-        Recent Deployments
-      </h2>
-      <div className="bg-white border border-gray-200 overflow-x-auto">
-        <table className="w-full text-xs min-w-100">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="text-left px-4 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">
-                Functions
-              </th>
-              <th className="px-4 py-2.5" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {recent.map(dep => {
-              const fnCount = Object.values(dep.packages ?? {}).reduce(
-                (acc, handles) =>
-                  acc + handles.reduce((a, h) => a + (h.scope?.funcs?.length ?? 0), 0),
-                0,
-              );
-              return (
-                <tr
-                  key={dep.suffix}
-                  className="hover:bg-blue-50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/deployments/${dep.suffix}`)}
-                >
-                  <td className="px-4 py-2.5 font-mono text-gray-700 truncate max-w-35">
-                    {dep.suffix}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <StatusBadge
-                      status={dep.status === 'fail' ? 'error' : dep.status ?? 'create'}
-                    />
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-400 hidden sm:table-cell">{fnCount}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                        onClick={e => {
-                          e.stopPropagation();
-                          navigate(`/deployments/${dep.suffix}`);
-                        }}
-                      >
-                        <ExternalLink size={12} />
-                      </button>
-                      <button
-                        className="p-1 text-gray-300 hover:text-red-400 transition-colors"
-                        onClick={e => {
-                          e.stopPropagation();
-                          onDelete(dep);
-                        }}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 // Dashboard Page
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { deployments, loading, refetch } = useDeployments();
+  const { deployments, loading, error: pollError, refetch } = useDeployments();
 
   const [pendingDelete, setPending] = useState<Deployment | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const error = deleteError ?? pollError;
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await api.deployDelete(pendingDelete.prefix, pendingDelete.suffix, pendingDelete.version);
+      await api.deployDelete(
+        pendingDelete.prefix,
+        pendingDelete.suffix,
+        pendingDelete.version ?? 'v1',
+      );
       setPending(null);
       refetch();
     } catch (err: unknown) {
-      alert('Failed to delete: ' + (err as Error).message);
+      setDeleteError('Failed to delete deployment: ' + ((err as Error).message ?? 'Unknown error'));
+      setPending(null);
     } finally {
       setDeleting(false);
     }
@@ -240,6 +164,7 @@ export default function DashboardPage() {
           onConfirm={handleDelete}
           onCancel={() => {
             setPending(null);
+            setDeleteError(null);
           }}
         />
       )}
@@ -250,6 +175,22 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Spinner size={14} />
             <span>Fetching deployments…</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center justify-between gap-3 text-xs text-red-600 animate-in fade-in slide-in-from-top-1 duration-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setDeleteError(null)}
+              className="hover:text-red-800 p-1 transition-colors"
+              aria-label="Clear error"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
 
@@ -285,8 +226,42 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Recent deployments table */}
-        {!loading && deployments.length > 0 && <RecentDeploymentsTable deployments={deployments} onDelete={setPending} />}
+        {deployments.length > 0 && (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Deployments
+                </h2>
+              </div>
+
+              <button
+                className="flex items-center justify-center p-2.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 transition-all"
+                onClick={refetch}
+                title="Refresh deployments"
+              >
+                <RefreshCw size={16} />
+              </button>
+            </div>
+
+            <div className="bg-white border border-gray-200 w-full relative">
+              {loading && deployments.length > 0 && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-white border border-gray-200 shadow-lg px-4 py-3 flex items-center gap-3 font-semibold text-sm text-slate-700">
+                    <Spinner size={16} /> Syncing network...
+                  </div>
+                </div>
+              )}
+              <DeploymentTable
+                deployments={deployments}
+                onDelete={suffix => {
+                  const dep = deployments.find(d => d.suffix === suffix);
+                  if (dep) setPending(dep);
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

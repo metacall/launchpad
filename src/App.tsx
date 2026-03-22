@@ -9,7 +9,6 @@ import LoginPage from '@/pages/auth/LoginPage';
 import SignupPage from '@/pages/auth/SignupPage';
 
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
-const DeploymentsPage = lazy(() => import('@/pages/deployments/DeploymentsPage'));
 const DeployWizardPage = lazy(() => import('@/pages/deployments/DeployWizard'));
 const DeployRepositoryPage = lazy(() => import('@/pages/deployments/DeployRepositoryPage'));
 const DeploymentDetailPage = lazy(() => import('@/pages/deployments/DeploymentFunctionPage'));
@@ -82,7 +81,7 @@ export default function App() {
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/" element={<DashboardPage />} />
-                        <Route path="/deployments" element={<DeploymentsPage />} />
+                        <Route path="/deployments" element={<Navigate to="/" replace />} />
                         <Route path="/deployments/new" element={<DeployHubPage />} />
                         <Route path="/deployments/new/wizard" element={<DeployWizardPage />} />
                         <Route path="/deployments/new/repository" element={<DeployRepositoryPage />} />

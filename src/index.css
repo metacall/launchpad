@@ -117,3 +117,13 @@ body {
   background: color-mix(in srgb, var(--color-primary) 20%, transparent);
   color: var(--color-secondary-dark);
 }
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-140%);
+  }
+
+  to {
+    transform: translateX(340%);
+  }
+}

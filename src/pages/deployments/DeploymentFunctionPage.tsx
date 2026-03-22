@@ -72,7 +72,7 @@ export default function DeploymentDetailPage() {
     setDeleting(true);
     try {
       await api.deployDelete(deployment.prefix, deployment.suffix, deployment.version);
-      navigate('/deployments');
+      navigate('/');
     } catch (err: unknown) {
       setError('Failed to delete deployment: ' + ((err as Error).message ?? 'Unknown error'));
       setShowDeleteConfirm(false);
@@ -109,7 +109,7 @@ export default function DeploymentDetailPage() {
             <p className="text-sm text-slate-500 mt-1.5">{error}</p>
           </div>
           <button
-            onClick={() => navigate('/deployments')}
+            onClick={() => navigate('/')}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700 transition-colors"
           >
             <ArrowLeft size={14} /> Back to Hub
@@ -137,7 +137,7 @@ export default function DeploymentDetailPage() {
           {/* Left: back and name */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/deployments')}
+              onClick={() => navigate('/')}
               className="p-1.5 rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors"
               title="Back"
             >
@@ -293,4 +293,3 @@ export default function DeploymentDetailPage() {
     </div>
   );
 }
-

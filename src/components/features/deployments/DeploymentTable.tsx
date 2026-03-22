@@ -4,6 +4,7 @@ import { Trash2, ExternalLink } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LanguageBadge } from '@/components/ui/LanguageBadge';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Layers } from 'lucide-react';
 
 interface DeploymentTableProps {
@@ -51,6 +52,7 @@ export function DeploymentTable({ deployments, onDelete }: DeploymentTableProps)
           {deployments.map(dep => {
             const endpoint = `http://localhost:9000/${dep.prefix}/${dep.suffix}/v1/call`;
             const languages = Object.keys(dep.packages ?? {});
+            const status = dep.status as Parameters<typeof ProgressBar>[0]['status'];
 
             return (
               <tr
@@ -77,7 +79,14 @@ export function DeploymentTable({ deployments, onDelete }: DeploymentTableProps)
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <StatusBadge status={dep.status as Parameters<typeof StatusBadge>[0]['status']} />
+                  <div className="min-w-36 space-y-1.5">
+                    <StatusBadge status={status} />
+                    <ProgressBar
+                      status={status}
+                      size="sm"
+                      showValue={status === 'create' || status === 'building'}
+                    />
+                  </div>
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>

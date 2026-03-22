@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Plus, X, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Home, Plus, X, RefreshCw } from 'lucide-react';
 import { useDeployments } from '@/hooks/useDeployments';
 import { api } from '@/api/client';
 import { DeploymentTable } from '@/components/features/deployments/DeploymentTable';
