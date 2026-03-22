@@ -25,12 +25,7 @@ export function FunctionRow({
   version,
 }: FunctionRowProps) {
   const buildDefaultArgs = () => {
-    if (func.args.length === 0) return '[]';
-    return JSON.stringify(
-      func.args.map(() => null),
-      null,
-      2,
-    );
+    return '[]';
   };
 
   const [argsInput, setArgsInput] = useState(buildDefaultArgs);
@@ -123,7 +118,7 @@ export function FunctionRow({
       {isOpen && (
         <div className="px-5 pt-3 pb-5 bg-white border-t border-amber-100/80 animate-in slide-in-from-top-1 duration-150">
           <div className="flex items-center gap-2 mb-4 p-2.5 bg-gray-50 border border-gray-200">
-            <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold bg-blue-500 text-white uppercase tracking-wider">
+            <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold bg-gray-500 text-white uppercase tracking-wider">
               POST
             </span>
             <code
