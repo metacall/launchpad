@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { LanguageBadge } from '@/components/ui/LanguageBadge';
 import { FunctionTester } from '@/components/features/deployments/FunctionTester';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { DeleteModal } from '@/components/ui/DeleteModal';
 
 // Helper components
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -127,9 +128,19 @@ export default function DeploymentDetailPage() {
   );
 
   return (
-    <div className="flex items-stretch justify-center h-[calc(100vh-80px)] p-4 sm:p-6 animate-in fade-in duration-300">
-      <div className="w-full max-w-6xl flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden h-full">
-        <div className="h-0.5 w-full bg-linear-to-r from-blue-500 via-violet-500 to-rose-400" />
+    <>
+      {showDeleteConfirm && (
+        <DeleteModal
+          suffix={deployment.suffix}
+          deleting={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+
+      <div className="flex items-stretch justify-center h-[calc(100vh-80px)] p-4 sm:p-6 animate-in fade-in duration-300">
+        <div className="w-full max-w-6xl flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden h-full">
+        <div className="h-0.5 w-full bg-linear-to-r from-gray-500 via-gray-500 to-gray-400" />
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-5 py-4 border-b border-slate-100">
@@ -181,40 +192,19 @@ export default function DeploymentDetailPage() {
             </button>
             <button
               onClick={() => navigate(`/deployments/${deployment.suffix}/logs`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors"
             >
               <ScrollText size={12} />
               View Logs
             </button>
 
-            {/* Delete with inline confirm */}
-            {showDeleteConfirm ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 font-medium">Sure?</span>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-50"
-                >
-                  {deleting ? <Spinner size={12} /> : <Trash2 size={12} />}
-                  Delete
-                </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="px-2.5 py-1.5 text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-500  bg-white hover:bg-red-50 hover:border-red-200 transition-colors"
-              >
-                <Trash2 size={12} />
-                Delete
-              </button>
-            )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-500 bg-white hover:bg-red-50 hover:border-red-200 transition-colors"
+            >
+              <Trash2 size={12} />
+              Delete
+            </button>
           </div>
         </div>
 
@@ -288,7 +278,8 @@ export default function DeploymentDetailPage() {
             <FunctionTester deployment={deployment} />
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
