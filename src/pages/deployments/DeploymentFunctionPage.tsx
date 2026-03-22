@@ -42,6 +42,7 @@ export default function DeploymentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const fetchDeployment = useCallback(async () => {
     if (!suffix) return;
@@ -140,10 +141,17 @@ export default function DeploymentDetailPage() {
 
       <div className="flex items-stretch justify-center h-[calc(100vh-80px)] p-4 sm:p-6 animate-in fade-in duration-300">
         <div className="w-full max-w-6xl flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden h-full">
-        <div className="h-0.5 w-full bg-linear-to-r from-gray-500 via-gray-500 to-gray-400" />
-
+        <div className=" pb-3">
+          <div className="h-[2px] w-full overflow-hidden rounded-full bg-slate-200/80">
+            <div
+              className="h-full rounded-full bg-linear-to-r from-slate-500 via-slate-600 to-slate-500 transition-[width] duration-150"
+              style={{ width: `${scrollProgress}%` }}
+            />
+          </div>
+        </div>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-5 py-4 border-b border-slate-100">
+        <div className="border-b border-slate-50">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-5 py-4">
           {/* Left: back and name */}
           <div className="flex items-center gap-3">
             <button
@@ -206,6 +214,8 @@ export default function DeploymentDetailPage() {
               Delete
             </button>
           </div>
+        </div>
+
         </div>
 
         {/* Body */}
@@ -275,7 +285,10 @@ export default function DeploymentDetailPage() {
 
           {/* Right: function tester */}
           <div className="flex-1 overflow-hidden min-h-0">
-            <FunctionTester deployment={deployment} />
+            <FunctionTester
+              deployment={deployment}
+              onScrollProgressChange={setScrollProgress}
+            />
           </div>
         </div>
         </div>

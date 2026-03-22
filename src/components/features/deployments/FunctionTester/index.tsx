@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Layers } from 'lucide-react';
 import { env } from '@/env';
 import type { Deployment } from '@/types';
@@ -7,13 +7,28 @@ import { FunctionRow } from './FunctionRow';
 
 interface FunctionTesterProps {
   deployment: Deployment;
+  onScrollProgressChange?: (progress: number) => void;
 }
 
-export function FunctionTester({ deployment }: FunctionTesterProps) {
+export function FunctionTester({ deployment, onScrollProgressChange }: FunctionTesterProps) {
   const [openFunc, setOpenFunc] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const baseUrl = env.FAAS_URL;
   const allFuncs = useFunctionList(deployment);
+
+  const handleScroll = () => {
+    const node = listRef.current;
+    if (!node) return;
+
+    const maxScroll = node.scrollHeight - node.clientHeight;
+    if (maxScroll <= 0) {
+      onScrollProgressChange?.(0);
+      return;
+    }
+
+    onScrollProgressChange?.((node.scrollTop / maxScroll) * 100);
+  };
 
   if (allFuncs.length === 0) {
     return (
@@ -40,7 +55,7 @@ export function FunctionTester({ deployment }: FunctionTesterProps) {
       </div>
 
       {/* Accordion list */}
-      <div className="overflow-y-auto flex-1">
+      <div ref={listRef} onScroll={handleScroll} className="overflow-y-auto flex-1">
         {allFuncs.map(func => {
           const funcKey = `${func.lang}::${func.handleName}::${func.name}`;
           const endpoint = `${baseUrl}/${deployment.prefix}/${deployment.suffix}/${deployment.version}/call/${func.name}`;
