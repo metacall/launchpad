@@ -1,22 +1,29 @@
 import { clsx } from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 
-type StatusValue = 'create' | 'ready' | 'error' | 'building' | 'failed' | 'stopped' | 'fail';
+export type ProgressStatusValue =
+  | 'create'
+  | 'ready'
+  | 'error'
+  | 'building'
+  | 'failed'
+  | 'stopped'
+  | 'fail';
 
 interface ProgressBarProps {
-  status: StatusValue;
+  status: ProgressStatusValue;
   createdAt?: string;
   showLabel?: boolean;
   showValue?: boolean;
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md';
   className?: string;
 }
 
-const BUILDING_STATUSES: StatusValue[] = ['create', 'building'];
-const FAILURE_STATUSES: StatusValue[] = ['error', 'failed', 'fail'];
+const BUILDING_STATUSES: ProgressStatusValue[] = ['create', 'building'];
+const FAILURE_STATUSES: ProgressStatusValue[] = ['error', 'failed', 'fail'];
 
 const STATUS_META: Record<
-  StatusValue,
+  ProgressStatusValue,
   {
     label: string;
     tone: string;
@@ -26,21 +33,21 @@ const STATUS_META: Record<
   }
 > = {
   create: {
-    label: 'Preparing',
+    label: 'Loading',
     tone: 'from-sky-500 via-blue-500 to-cyan-400',
     track: 'bg-sky-100/80',
     indeterminate: true,
-    value: 22,
+    value: 18,
   },
   building: {
-    label: 'Building',
+    label: 'Loading',
     tone: 'from-sky-500 via-blue-500 to-cyan-400',
     track: 'bg-sky-100/80',
     indeterminate: true,
     value: 34,
   },
   ready: {
-    label: 'Live',
+    label: 'Ready',
     tone: 'from-emerald-500 via-green-500 to-lime-400',
     track: 'bg-emerald-100/80',
     indeterminate: false,
@@ -102,30 +109,28 @@ export function ProgressBar({
 
     const interval = window.setInterval(() => {
       setElapsedSeconds(getElapsedSeconds(createdAt));
-    }, 600);
+    }, 700);
 
     return () => window.clearInterval(interval);
   }, [createdAt, isBuilding]);
 
   const percentage = useMemo(() => {
     if (!isBuilding) return meta.value;
-
     if (elapsedSeconds === null) return meta.value;
 
-    // Move quickly at first, then slow down and hold below completion until the API reports ready.
-    const curved = 18 + 76 * (1 - Math.exp(-elapsedSeconds / 16));
+    const curved = 14 + 78 * (1 - Math.exp(-elapsedSeconds / 18));
     return Math.min(92, Math.round(curved));
   }, [elapsedSeconds, isBuilding, meta.value]);
 
-  const heightClass = size === 'sm' ? 'h-1.5' : 'h-2.5';
-  const textClass = size === 'sm' ? 'text-[10px]' : 'text-[11px]';
+  const heightClass = size === 'xs' ? 'h-[3px]' : size === 'sm' ? 'h-1' : 'h-2';
+  const textClass = size === 'xs' ? 'text-[9px]' : size === 'sm' ? 'text-[10px]' : 'text-[11px]';
 
   return (
-    <div className={clsx('flex flex-col gap-1', className)}>
+    <div className={clsx('flex flex-col', size === 'xs' ? 'gap-0.5' : 'gap-1', className)}>
       {(showLabel || showValue) && (
         <div className="flex items-center justify-between gap-2">
           {showLabel ? (
-            <span className={clsx('font-semibold uppercase tracking-[0.18em] text-slate-400', textClass)}>
+            <span className={clsx('font-semibold uppercase tracking-[0.16em] text-slate-400', textClass)}>
               {meta.label}
             </span>
           ) : (
@@ -141,9 +146,9 @@ export function ProgressBar({
 
       <div
         className={clsx(
-          'relative flex-1 overflow-hidden rounded-full ring-1 ring-inset ring-slate-200/70',
+          'relative flex-1 overflow-hidden rounded-full bg-slate-200/80',
           heightClass,
-          meta.track,
+          size === 'xs' ? 'shadow-none' : meta.track,
         )}
         role="progressbar"
         aria-label={meta.label}
@@ -155,14 +160,22 @@ export function ProgressBar({
           className={clsx(
             'absolute inset-y-0 left-0 rounded-full bg-linear-to-r transition-[width] duration-500 ease-out',
             meta.tone,
-            isBuilding && 'shadow-[0_0_18px_rgba(59,130,246,0.35)]',
-            FAILURE_STATUSES.includes(status) && 'shadow-[0_0_18px_rgba(239,68,68,0.22)]',
+            size === 'xs'
+              ? ''
+              : isBuilding
+                ? 'shadow-[0_0_18px_rgba(59,130,246,0.35)]'
+                : FAILURE_STATUSES.includes(status)
+                  ? 'shadow-[0_0_18px_rgba(239,68,68,0.22)]'
+                  : '',
           )}
           style={{ width: `${percentage}%` }}
         />
         {meta.indeterminate && (
           <div
-            className="absolute inset-y-0 w-16 -translate-x-full animate-[shimmer_1.8s_linear_infinite] bg-linear-to-r from-white/0 via-white/55 to-white/0"
+            className={clsx(
+              'absolute inset-y-0 -translate-x-full animate-[shimmer_1.8s_linear_infinite] bg-linear-to-r from-white/0 via-white/55 to-white/0',
+              size === 'xs' ? 'w-8' : 'w-16',
+            )}
           />
         )}
       </div>

@@ -6,7 +6,6 @@ import { api } from '@/api/client';
 import { env } from '@/env';
 import type { Deployment } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { LanguageBadge } from '@/components/ui/LanguageBadge';
 import { FunctionTester } from '@/components/features/deployments/FunctionTester';
 import { CopyButton } from '@/components/ui/CopyButton';
@@ -150,7 +149,7 @@ export default function DeploymentDetailPage() {
                   <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none">
                     {deployment.suffix}
                   </h1>
-                  <StatusBadge status={deployment.status === 'fail' ? 'error' : deployment.status ?? 'create'} />
+                  {/* <StatusBadge status={deployment.status === 'fail' ? 'error' : deployment.status ?? 'create'} /> */}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-400 font-medium">
                   <span className="font-mono">{deployment.prefix}</span>

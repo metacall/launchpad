@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useDeployments } from '@/hooks/useDeployments';
 import { api } from '@/api/client';
 import type { Deployment } from '@/types';
@@ -7,6 +7,31 @@ import { AlertTriangle, Plus, RefreshCw, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { DeleteModal } from '@/components/ui/DeleteModal';
 import { DeploymentTable } from '@/components/features/deployments/DeploymentTable';
+
+interface PendingDeploymentEntry {
+  suffix: string;
+  startedAt: string;
+}
+
+const PENDING_DEPLOYMENTS_KEY = 'pending_deployments';
+
+function readPendingDeployments(): PendingDeploymentEntry[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_DEPLOYMENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as PendingDeploymentEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingDeployments(entries: PendingDeploymentEntry[]) {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(PENDING_DEPLOYMENTS_KEY, JSON.stringify(entries));
+}
 
 // Plan config
 const PLAN_CLASSES: Record<string, { headerBg: string; plusHover: string }> = {
@@ -117,13 +142,75 @@ function EmptyLaunchpadCard({ plan, onClick, isAlreadyUsed }: { plan: string; on
 // Dashboard Page
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { deployments, loading, error: pollError, refetch } = useDeployments();
+  const location = useLocation();
+  const [pendingDeployments, setPendingDeployments] = useState<PendingDeploymentEntry[]>(
+    () => readPendingDeployments(),
+  );
+  const hasPendingDeployments = pendingDeployments.length > 0;
+  const {
+    deployments,
+    loading,
+    error: pollError,
+    refetch,
+  } = useDeployments(hasPendingDeployments ? 3_000 : 30_000);
 
   const [pendingDelete, setPending] = useState<Deployment | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const error = deleteError ?? pollError;
+
+  useEffect(() => {
+    writePendingDeployments(pendingDeployments);
+  }, [pendingDeployments]);
+
+  useEffect(() => {
+    const incoming = location.state as { pendingDeployment?: PendingDeploymentEntry } | null;
+    const entry = incoming?.pendingDeployment;
+    if (!entry?.suffix || !entry.startedAt) return;
+
+    setPendingDeployments(current => {
+      if (current.some(item => item.suffix === entry.suffix)) return current;
+      return [...current, entry];
+    });
+  }, [location.state]);
+
+  useEffect(() => {
+    if (pendingDeployments.length === 0) return;
+
+    setPendingDeployments(current =>
+      current.filter(entry => {
+        const deployment = deployments.find(dep => dep.suffix === entry.suffix);
+        if (!deployment) return true;
+        const status = deployment.status as 'create' | 'building' | 'ready' | 'fail';
+        return status === 'create' || status === 'building';
+      }),
+    );
+  }, [deployments, pendingDeployments.length]);
+
+  const loadingStartedAtBySuffix = useMemo(
+    () =>
+      Object.fromEntries(
+        pendingDeployments.map(entry => [entry.suffix, entry.startedAt] as const),
+      ),
+    [pendingDeployments],
+  );
+
+  const placeholderDeployments = pendingDeployments
+    .filter(entry => !deployments.some(dep => dep.suffix === entry.suffix))
+    .map(
+      entry =>
+        ({
+          prefix: 'metacall',
+          suffix: entry.suffix,
+          version: 'v1',
+          packages: {} as Deployment['packages'],
+          ports: [],
+          status: 'create',
+        }) as unknown as Deployment,
+    );
+
+  const visibleDeployments = [...placeholderDeployments, ...deployments];
 
   const handleDelete = async () => {
     if (!pendingDelete) return;
@@ -226,7 +313,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {deployments.length > 0 && (
+        {visibleDeployments.length > 0 && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -245,7 +332,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-white border border-gray-200 w-full relative">
-              {loading && deployments.length > 0 && (
+              {loading && visibleDeployments.length > 0 && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
                   <div className="bg-white border border-gray-200 shadow-lg px-4 py-3 flex items-center gap-3 font-semibold text-sm text-slate-700">
                     <Spinner size={16} /> Syncing network...
@@ -253,7 +340,8 @@ export default function DashboardPage() {
                 </div>
               )}
               <DeploymentTable
-                deployments={deployments}
+                deployments={visibleDeployments}
+                loadingStartedAtBySuffix={loadingStartedAtBySuffix}
                 onDelete={suffix => {
                   const dep = deployments.find(d => d.suffix === suffix);
                   if (dep) setPending(dep);

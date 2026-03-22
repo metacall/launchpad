@@ -175,9 +175,15 @@ export default function DeployWizardPage() {
         .filter(r => r.name.trim())
         .map(r => ({ name: r.name.trim(), value: r.value }));
 
-      await api.deploy(deployName, envVars, plan || Plans.Essential, 'Package');
-
-      navigate('/');
+      const deployment = await api.deploy(deployName, envVars, plan || Plans.Essential, 'Package');
+      navigate('/', {
+        state: {
+          pendingDeployment: {
+            suffix: deployment.suffix,
+            startedAt: new Date().toISOString(),
+          },
+        },
+      });
     } catch (error) {
       console.error('Deploy failed', error);
       const err = error as { response?: { data?: string }; message?: string };

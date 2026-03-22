@@ -10,9 +10,14 @@ import { Layers } from 'lucide-react';
 interface DeploymentTableProps {
   deployments: Deployment[];
   onDelete?: (suffix: string) => void;
+  loadingStartedAtBySuffix?: Record<string, string>;
 }
 
-export function DeploymentTable({ deployments, onDelete }: DeploymentTableProps) {
+export function DeploymentTable({
+  deployments,
+  onDelete,
+  loadingStartedAtBySuffix = {},
+}: DeploymentTableProps) {
   const navigate = useNavigate();
 
   if (deployments.length === 0) {
@@ -53,6 +58,7 @@ export function DeploymentTable({ deployments, onDelete }: DeploymentTableProps)
             const endpoint = `http://localhost:9000/${dep.prefix}/${dep.suffix}/v1/call`;
             const languages = Object.keys(dep.packages ?? {});
             const status = dep.status as Parameters<typeof ProgressBar>[0]['status'];
+            const isProcessing = status === 'create' || status === 'building';
 
             return (
               <tr
@@ -79,13 +85,19 @@ export function DeploymentTable({ deployments, onDelete }: DeploymentTableProps)
                   </div>
                 </td>
                 <td className="py-3 px-4">
-                  <div className="min-w-36 space-y-1.5">
+                  <div className="min-w-28">
                     <StatusBadge status={status} />
-                    <ProgressBar
-                      status={status}
-                      size="sm"
-                      showValue={status === 'create' || status === 'building'}
-                    />
+                    {isProcessing && (
+                      <div className="mt-1.5 max-w-24">
+                        <ProgressBar
+                          status={status}
+                          createdAt={loadingStartedAtBySuffix[dep.suffix]}
+                          size="xs"
+                          showLabel
+                          showValue
+                        />
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="py-3 px-4">

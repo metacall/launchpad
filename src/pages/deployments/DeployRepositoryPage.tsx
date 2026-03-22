@@ -56,8 +56,15 @@ export default function DeployRepositoryPage() {
         .filter(r => r.name.trim())
         .map(r => ({ name: r.name.trim(), value: r.value }));
 
-      await api.deploy(id, envVars, Plans.Essential, 'Repository');
-      navigate('/');
+      const deployment = await api.deploy(id, envVars, Plans.Essential, 'Repository');
+      navigate('/', {
+        state: {
+          pendingDeployment: {
+            suffix: deployment.suffix,
+            startedAt: new Date().toISOString(),
+          },
+        },
+      });
     } catch (err: unknown) {
       const error = err as { response?: { data?: string }; message?: string };
       setDeployError(error?.response?.data ?? error?.message ?? 'Failed to deploy repository.');
@@ -144,7 +151,6 @@ export default function DeployRepositoryPage() {
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [repositoryUrl]);
-
   return (
     <div className="grow flex flex-col items-center justify-start p-4 sm:p-8 pt-6 animate-in fade-in duration-500 relative overflow-hidden">
       <div className="absolute top-[-8%] right-[5%] w-96 h-96 bg-blue-500/3 rounded-full blur-[80px] pointer-events-none" />

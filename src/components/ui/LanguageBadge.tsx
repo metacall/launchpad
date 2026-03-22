@@ -8,27 +8,27 @@ interface LanguageBadgeProps {
 const LANG_CONFIG: Partial<
   Record<LanguageId | string, { label: string; bg: string; text: string }>
 > = {
-  node: { label: 'Node.js', bg: 'bg-yellow-900/20', text: 'text-gray-800' },
-  ts: { label: 'TypeScript', bg: 'bg-blue-900/20', text: 'text-gray-800' },
-  py: { label: 'Python', bg: 'bg-sky-900/20', text: 'text-gray-800' },
-  rb: { label: 'Ruby', bg: 'bg-red-900/20', text: 'text-gray-800' },
-  cs: { label: 'C#', bg: 'bg-purple-900/20', text: 'text-gray-800' },
-  cob: { label: 'COBOL', bg: 'bg-gray-800', text: 'text-gray-300' },
-  file: { label: 'File', bg: 'bg-gray-800', text: 'text-gray-400' },
-  rpc: { label: 'RPC', bg: 'bg-indigo-900/20', text: 'text-gray-800' },
+  node: { label: 'Node.js', bg: 'bg-slate-100', text: 'text-slate-600' },
+  ts: { label: 'TypeScript', bg: 'bg-slate-100', text: 'text-slate-600' },
+  py: { label: 'Python', bg: 'bg-slate-100', text: 'text-slate-600' },
+  rb: { label: 'Ruby', bg: 'bg-slate-100', text: 'text-slate-600' },
+  cs: { label: 'C#', bg: 'bg-slate-100', text: 'text-slate-600' },
+  cob: { label: 'COBOL', bg: 'bg-slate-100', text: 'text-slate-600' },
+  file: { label: 'File', bg: 'bg-slate-100', text: 'text-slate-600' },
+  rpc: { label: 'RPC', bg: 'bg-slate-100', text: 'text-slate-600' },
 };
 
 export function LanguageBadge({ language }: LanguageBadgeProps) {
   const config = LANG_CONFIG[language] ?? {
     label: language,
-    bg: 'bg-gray-800',
-    text: 'text-gray-400',
+    bg: 'bg-slate-100',
+    text: 'text-slate-600',
   };
 
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium',
         config.bg,
         config.text,
       )}
