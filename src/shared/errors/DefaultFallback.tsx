@@ -1,4 +1,4 @@
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw} from 'lucide-react';
 
 interface DefaultFallbackProps {
   error: Error;
@@ -11,10 +11,6 @@ export function DefaultFallback({ error, reset }: DefaultFallbackProps) {
       <div className="bg-white border border-slate-200 shadow-sm p-8 max-w-lg w-full text-center flex flex-col items-center gap-5 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-red-400" />
         
-        <div className="p-3 bg-red-50 rounded-full mt-2">
-          <AlertTriangle size={24} className="text-red-500" />
-        </div>
-
         <div>
           <h2 className="text-lg font-bold text-slate-800 tracking-tight">Something went wrong</h2>
           <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto leading-relaxed">

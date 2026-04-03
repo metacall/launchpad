@@ -218,13 +218,7 @@ export default function DeployWizardPage() {
   }
 
   return (
-    <div className="grow flex flex-col items-center justify-start p-4 sm:p-6 pt-8 sm:pt-12 relative overflow-hidden animate-in fade-in duration-500 bg-slate-50/50">
-      {/* Background glows */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[10%] w-125 h-125 bg-[--color-primary]/2 rounded-full blur-[80px]"></div>
-        <div className="absolute bottom-[-10%] left-[-5%] w-125 h-125 bg-blue-500/2 rounded-full blur-[80px]"></div>
-      </div>
-
+    <div className="grow flex flex-col items-center justify-start p-4 sm:p-6 pt-8 sm:pt-12 relative overflow-hidden animate-in fade-in duration-500 bg-white">
       <div className="w-full max-w-5xl bg-white border border-gray-200 shadow-sm flex flex-col z-10 transition-all rounded-sm">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-gray-50/30">
