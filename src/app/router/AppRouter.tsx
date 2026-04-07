@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import SignupPage from '@/features/auth/pages/SignupPage';
 import { AppShell } from '@/shared/layout/AppShell';
-import { Spinner } from '@/shared/ui/Spinner';
+import { SVGLoader, AuthLoadingPattern, RouteLoadingPattern } from '@/shared/ui/LoadingState';
 
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'));
 const DeploymentsPage = lazy(() => import('@/features/deployments/pages/DeploymentsPage'));
@@ -24,22 +24,9 @@ const PlanPage = lazy(() => import('@/features/plan/pages/PlanPage'));
 const ChatPage = lazy(() => import('@/features/chat/pages/ChatPage'));
 const NotFoundPage = lazy(() => import('@/features/errors/pages/NotFoundPage'));
 
-const FullPageSpinner = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <Spinner size={28} className="text-blue-500" />
-  </div>
-);
+const FullPageSpinner = () => <AuthLoadingPattern />;
 
-const PageLoader = () => (
-  <div className="grow flex items-center justify-center min-h-[50vh]">
-    <div className="flex flex-col items-center gap-3">
-      <Spinner size={24} className="text-blue-500" />
-      <span className="text-sm font-medium text-slate-500 animate-pulse tracking-widest uppercase">
-        Loading route...
-      </span>
-    </div>
-  </div>
-);
+const PageLoader = () => <RouteLoadingPattern />;
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();

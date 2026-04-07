@@ -4,7 +4,7 @@ import { ArrowLeft, RefreshCw, Terminal, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLogs } from '@/features/logs/hooks/useLogs';
 import type { Deployment } from '@/shared/types';
-import { PageLoading, LoadingOverlay } from '@/shared/ui/LoadingState';
+import { PageLoading } from '@/shared/ui/LoadingState';
 import { LogsViewer } from '@/features/logs/components/LogsViewer';
 
 export default function LogsViewerPage() {

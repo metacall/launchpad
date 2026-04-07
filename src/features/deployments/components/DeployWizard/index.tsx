@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Plans } from '@metacall/protocol/plan';
-import { Spinner } from '@/shared/ui/Spinner';
+import { SVGLoader } from '@/shared/ui/LoadingState';
 import JSZip from 'jszip';
 import type { TreeNode } from './TreeNodeView';
 import { TreeNodeView } from './TreeNodeView';
@@ -265,7 +265,8 @@ export default function DeployWizardPage() {
             <div className="grow overflow-y-auto max-h-75 lg:max-h-none pr-2 custom-scrollbar bg-gray-50/50 border border-gray-200 rounded-md p-2 sm:p-3">
               {loadingZip ? (
                 <div className="flex flex-col items-center gap-3 text-sm text-gray-500 py-10 justify-center h-full">
-                  <Spinner size={24} /> Parsing ZIP payload...
+                  <SVGLoader variant="minimal" size={40} />
+                  <span>Parsing ZIP payload…</span>
                 </div>
               ) : tree ? (
                 <div className="flex flex-col gap-1">
