@@ -5,7 +5,7 @@ import axios from 'axios';
 import { api } from '@/lib/api-client';
 import { env } from '@/app/config/env';
 import type { Deployment } from '@/shared/types';
-import { PageLoading, SkeletonLoader } from '@/shared/ui/LoadingState';
+import { SkeletonLoader } from '@/shared/ui/LoadingState';
 import { LanguageBadge } from '@/shared/ui/LanguageBadge';
 import { FunctionTester } from '@/features/deployments/components/FunctionTester';
 import { CopyButton } from '@/shared/ui/CopyButton';

@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react';
-import { Layers } from 'lucide-react';
 import { env } from '@/app/config/env';
 import type { Deployment } from '@/shared/types';
 import { useFunctionList } from './useFunctionList';
