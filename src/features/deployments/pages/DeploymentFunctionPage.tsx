@@ -5,7 +5,7 @@ import axios from 'axios';
 import { api } from '@/lib/api-client';
 import { env } from '@/app/config/env';
 import type { Deployment } from '@/shared/types';
-import { PageLoading } from '@/shared/ui/LoadingState';
+import { PageLoading, SkeletonLoader } from '@/shared/ui/LoadingState';
 import { LanguageBadge } from '@/shared/ui/LanguageBadge';
 import { FunctionTester } from '@/features/deployments/components/FunctionTester';
 import { CopyButton } from '@/shared/ui/CopyButton';
@@ -43,6 +43,7 @@ export default function DeploymentDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [showSkeleton, setShowSkeleton] = useState(false);
 
   const fetchDeployment = useCallback(async () => {
     if (!suffix) return;
@@ -68,6 +69,17 @@ export default function DeploymentDetailPage() {
 
   useEffect(() => { fetchDeployment(); }, [fetchDeployment]);
 
+  // Grace delay to avoid flicker on sub-second loads; skeleton appears after 180ms
+  useEffect(() => {
+    if (!loading) {
+      setShowSkeleton(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShowSkeleton(true), 180);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
+
   const handleDelete = async () => {
     if (!deployment) return;
     setDeleting(true);
@@ -84,7 +96,8 @@ export default function DeploymentDetailPage() {
 
   // Loading
   if (loading) {
-    return <PageLoading message="Loading deployment…" spinnerSize={28} />;
+    if (!showSkeleton) return null;
+    return <DeploymentDetailSkeleton />;
   }
 
   // Error or not found
@@ -314,5 +327,79 @@ export default function DeploymentDetailPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function DeploymentDetailSkeleton() {
+  return (
+    <div className="flex items-stretch justify-center h-[calc(100vh-80px)] p-4 sm:p-6">
+      <div className="w-full max-w-6xl flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden h-full">
+        <div className="pb-3">
+          <div className="h-[2px] w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-slate-200 animate-pulse" style={{ width: '35%' }} />
+          </div>
+        </div>
+
+        <div className="border-b border-slate-50 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full">
+            <span className="p-2 rounded-md border border-slate-100 bg-slate-50">
+              <SkeletonLoader skeletonLines={1} className="w-4" />
+            </span>
+            <div className="flex flex-col gap-2 w-full">
+              <SkeletonLoader skeletonLines={1} className="h-5 w-40" />
+              <SkeletonLoader skeletonLines={1} className="h-4 w-60" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <SkeletonLoader skeletonLines={1} className="h-8 w-20" />
+            <SkeletonLoader skeletonLines={1} className="h-8 w-24" />
+            <SkeletonLoader skeletonLines={1} className="h-8 w-24" />
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row flex-1 min-h-0">
+          <div className="w-full md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-5 flex flex-col gap-6 bg-slate-50/40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2">
+              {[1, 2].map(i => (
+                <div key={i} className="flex flex-col gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5">
+                  <SkeletonLoader skeletonLines={1} className="h-3 w-16" />
+                  <SkeletonLoader skeletonLines={1} className="h-6 w-10" />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SkeletonLoader skeletonLines={1} className="h-3 w-20" />
+              <SkeletonLoader skeletonLines={2} className="h-3" />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SkeletonLoader skeletonLines={1} className="h-3 w-24" />
+              <div className="flex flex-col gap-2">
+                {[1, 2, 3].map(i => (
+                  <SkeletonLoader key={i} skeletonLines={1} className="h-9 w-full" />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SkeletonLoader skeletonLines={1} className="h-3 w-24" />
+              <SkeletonLoader skeletonLines={2} className="h-3" />
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 bg-white p-5">
+            <div className="flex flex-col gap-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="border border-slate-100 rounded-lg p-4">
+                  <SkeletonLoader skeletonLines={1} className="h-4 w-36" />
+                  <SkeletonLoader skeletonLines={1} className="h-3 w-64 mt-2" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

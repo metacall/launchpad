@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X } from 'lucide-react';
+import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Plans } from '@metacall/protocol/plan';
 import { SVGLoader } from '@/shared/ui/LoadingState';
@@ -463,7 +463,7 @@ export default function DeployWizardPage() {
                 disabled={deploying}
                 className="w-full sm:w-auto px-6 sm:px-8 py-2.5 text-[15px] font-bold text-gray-600 hover:text-white bg-white border border-gray-300 rounded-md hover:bg-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {deploying ? <Spinner size={16} /> : null}
+                {deploying ? <Loader2 size={16} className="animate-spin" /> : null}
                 Deploy
               </button>
             </div>

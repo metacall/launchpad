@@ -282,7 +282,7 @@ export default function DashboardPage() {
         {/* Launchpad grid always shows all plan slots */}
         {!loading && (
           <div className="flex flex-col gap-3">
-            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
               Launchpads
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -315,7 +315,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
                   Deployments
                 </h2>
               </div>

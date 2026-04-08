@@ -9,7 +9,7 @@ interface FunctionTesterProps {
   deployment: Deployment;
   onScrollProgressChange?: (progress: number) => void;
 }
-
+// The FunctionTester component displays a list of exported functions
 export function FunctionTester({ deployment, onScrollProgressChange }: FunctionTesterProps) {
   const [openFunc, setOpenFunc] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -29,13 +29,10 @@ export function FunctionTester({ deployment, onScrollProgressChange }: FunctionT
 
     onScrollProgressChange?.((node.scrollTop / maxScroll) * 100);
   };
-
+  // when there is no function exported from the deployment, we show this empty state to the user
   if (allFuncs.length === 0) {
     return (
       <div className="bg-slate-900 flex flex-col items-center justify-center h-full p-12 text-center">
-        <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center mb-4">
-          <Layers size={24} className="text-slate-300" />
-        </div>
         <p className="text-sm font-semibold text-slate-600">No exported functions</p>
         <p className="text-xs text-slate-400 mt-1.5 max-w-xs leading-relaxed">
           This deployment does not expose any callable functions yet.

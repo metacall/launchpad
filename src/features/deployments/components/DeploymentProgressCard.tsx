@@ -54,7 +54,7 @@ export function DeploymentProgressCard({
               {status === 'ready' ? <CheckCircle2 size={22} /> : <Rocket size={22} />}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-slate-400">
                 Deployment Progress
               </p>
               <h1 className="mt-2 text-xl font-bold text-slate-900">

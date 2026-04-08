@@ -211,11 +211,57 @@ export function EditorView({
           {/* Syntax-highlighted code */}
           <div className="flex flex-col text-slate-800 whitespace-pre px-4">
             {lines.map((line, i) => {
-              const h = line
-                .replace(/"([^"]+)"(?=:)/g, '<span class="text-blue-600">"$1"</span>')
-                .replace(/: "([^"]+)"/g, ': <span class="text-green-600">"$1"</span>')
-                .replace(/ {4}"([^"]+)"/g, '    <span class="text-green-600">"$1"</span>');
-              return <div key={i} dangerouslySetInnerHTML={{ __html: h || ' ' }} />;
+              const parts: Array<{ text: string; color?: string }> = [];
+              let lastIdx = 0;
+
+              // Match key names (before colon with quotes)
+              const keyRegex = /"([^"]+)"(?=:)/g;
+              let match;
+              while ((match = keyRegex.exec(line)) !== null) {
+                if (match.index > lastIdx) {
+                  parts.push({ text: line.slice(lastIdx, match.index) });
+                }
+                parts.push({ text: `"${match[1]}"`, color: 'text-blue-600' });
+                lastIdx = keyRegex.lastIndex;
+              }
+
+              // Match string values (after colon with quotes)
+              if (lastIdx < line.length) {
+                const remaining = line.slice(lastIdx);
+                const valueRegex = /: "([^"]+)"|    "([^"]+)"/g;
+                let lastValueIdx = 0;
+                let valueMatch;
+                while ((valueMatch = valueRegex.exec(remaining)) !== null) {
+                  if (valueMatch.index > lastValueIdx) {
+                    parts.push({ text: remaining.slice(lastValueIdx, valueMatch.index) });
+                  }
+                  const value = valueMatch[1] || valueMatch[2];
+                  const prefix = valueMatch[0].startsWith(':') ? ': "' : '    "';
+                  parts.push({ text: prefix + value + '"', color: 'text-green-600' });
+                  lastValueIdx = valueRegex.lastIndex;
+                }
+                if (lastValueIdx < remaining.length) {
+                  parts.push({ text: remaining.slice(lastValueIdx) });
+                }
+              } else if (lastIdx === 0) {
+                parts.push({ text: line });
+              }
+
+              return (
+                <div key={i}>
+                  {parts.length > 0 ? (
+                    parts.map((part, j) =>
+                      part.color ? (
+                        <span key={j} className={part.color}>{part.text}</span>
+                      ) : (
+                        <span key={j}>{part.text}</span>
+                      )
+                    )
+                  ) : (
+                    <span>{line || ' '}</span>
+                  )}
+                </div>
+              );
             })}
           </div>
         </div>

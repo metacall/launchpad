@@ -155,7 +155,7 @@ export default function DeployHubPage() {
 
         {/* Help */}
         <div className="text-center">
-          <p className="text-xs text-slate-400">
+          <p className="text-[14px] lg:text-[16px]  text-slate-400">
             Need help? Check out our{' '}
             <a
               className="text-slate-500 font-medium hover:underline hover:text-blue-500 transition-colors"
