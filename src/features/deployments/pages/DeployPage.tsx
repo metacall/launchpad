@@ -39,7 +39,7 @@ export default function DeployHubPage() {
     <div className="grow flex flex-col items-center justify-start p-6 pt-20 relative overflow-hidden animate-in fade-in duration-500 bg-white">
       <div className="max-w-4xl w-full z-10 flex flex-col gap-10">
         <div className="text-center mb-6">
-          <h1 className="text-[28px] font-bold text-slate-900 mb-3 tracking-tight">
+          <h1 className="text-[28px] font-[500] text-slate-900 mb-3 tracking-tight">
             MetaCall Deployment
           </h1>
           <p className="text-slate-500">Choose how you want to deploy your function</p>
@@ -141,7 +141,7 @@ export default function DeployHubPage() {
                 <h2 className="text-lg font-bold text-slate-900 mb-2 transition-colors">
                   Deploy Zip
                 </h2>
-                <p className="text-slate-500 text-sm leading-relaxed max-w-70">
+                <p className="text-slate-500 text-[14px] leading-relaxed max-w-70">
                   Upload a zip file containing your function code and configuration manually.
                 </p>
               </div>
@@ -155,7 +155,7 @@ export default function DeployHubPage() {
 
         {/* Help */}
         <div className="text-center">
-          <p className="text-[14px] lg:text-[16px]  text-slate-400">
+          <p className="text-[14px] lg:text-[14px]  text-slate-400">
             Need help? Check out our{' '}
             <a
               className="text-slate-500 font-medium hover:underline hover:text-blue-500 transition-colors"

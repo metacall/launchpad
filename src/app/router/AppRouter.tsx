@@ -71,7 +71,7 @@ function AppLayout() {
     <AppShell>
       <ErrorBoundary FallbackComponent={RouteErrorFallback}>
         <Suspense fallback={<PageLoader />}>
-          <Outlet /> {/* This injects the matching child route here */}
+          <Outlet /> {/* Renders the matched child route component */}
         </Suspense>
       </ErrorBoundary>
     </AppShell>

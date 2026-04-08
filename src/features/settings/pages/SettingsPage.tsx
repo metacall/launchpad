@@ -82,7 +82,7 @@ export default function SettingsPage() {
         {/* Page header */}
         <div className="flex justify-between items-center mb-10 pb-6 border-b-2 border-slate-800">
           <div>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Account Settings</h2>
+            <h2 className="text-3xl font-medium text-slate-800 tracking-tight">Account Settings</h2>
             <p className="text-gray-500 mt-1 text-sm font-medium">
               Manage your profile, security, and billing details to customize your MetaCall
               experience.

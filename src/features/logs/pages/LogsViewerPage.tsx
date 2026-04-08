@@ -57,7 +57,7 @@ export default function LogsViewerPage() {
             onClick={() => navigate('/deployments')}
             className="mt-4 px-6 py-2.5 bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 transition-all flex items-center gap-2"
           >
-            <ArrowLeft size={16} /> Back to Hub
+            <ArrowLeft size={16} /> Back to Deployments
           </button>
         </div>
       </div>
