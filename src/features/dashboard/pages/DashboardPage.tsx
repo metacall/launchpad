@@ -35,6 +35,10 @@ function writePendingDeployments(entries: PendingDeploymentEntry[]) {
 
 // Plan config
 const PLAN_CLASSES: Record<string, { headerBg: string; plusHover: string }> = {
+  'Free Plan': {
+    headerBg: 'bg-gradient-to-r from-gray-600 to-gray-400',
+    plusHover: 'hover:bg-gray-500 hover:text-white hover:border-gray-500',
+  },
   'Essential Plan': {
     headerBg: 'bg-gradient-to-r from-blue-600 to-blue-400',
     plusHover: 'hover:bg-blue-500 hover:text-white hover:border-blue-500',
@@ -72,7 +76,7 @@ function DeployRow({ onClick, plusHover }: { onClick: () => void; plusHover: str
   );
 }
 
-// New Deploy card
+// free Deploy card
 function NewDeployCard() {
   const navigate = useNavigate();
   const { plusHover } = getPlanClasses('Free Plan');
