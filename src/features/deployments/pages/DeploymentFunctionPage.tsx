@@ -10,6 +10,7 @@ import { LanguageBadge } from '@/shared/ui/LanguageBadge';
 import { FunctionTester } from '@/features/deployments/components/FunctionTester';
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
+import { getPlanLabel } from '@/shared/lib/plan';
 
 // Helper components
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -43,8 +44,6 @@ export default function DeploymentDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [showSkeleton, setShowSkeleton] = useState(false);
-
   const fetchDeployment = useCallback(async () => {
     if (!suffix) return;
     setLoading(true);
@@ -69,17 +68,6 @@ export default function DeploymentDetailPage() {
 
   useEffect(() => { fetchDeployment(); }, [fetchDeployment]);
 
-  // Grace delay to avoid flicker on sub-second loads; skeleton appears after 180ms
-  useEffect(() => {
-    if (!loading) {
-      setShowSkeleton(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => setShowSkeleton(true), 180);
-    return () => window.clearTimeout(timer);
-  }, [loading]);
-
   const handleDelete = async () => {
     if (!deployment) return;
     setDeleting(true);
@@ -96,7 +84,6 @@ export default function DeploymentDetailPage() {
 
   // Loading
   if (loading) {
-    if (!showSkeleton) return null;
     return <DeploymentDetailSkeleton />;
   }
 
@@ -129,6 +116,9 @@ export default function DeploymentDetailPage() {
   const langs = Object.keys(deployment.packages ?? {}).filter(k => k !== 'Unknown');
   const baseUrl = env.FAAS_URL;
   const invokePath = `${baseUrl}/${deployment.prefix}/${deployment.suffix}/${deployment.version}/call`;
+  const deploymentPlan = getPlanLabel(
+    (deployment as unknown as Record<string, unknown>).plan as string | undefined,
+  );
   const totalFns = Object.values(deployment.packages ?? {}).reduce(
     (acc, handles) => acc + handles.reduce((a, h) => a + (h.scope?.funcs?.length ?? 0), 0),
     0,
@@ -180,6 +170,8 @@ export default function DeploymentDetailPage() {
                   <span className="font-mono">{deployment.prefix}</span>
                   <span className="text-slate-200">·</span>
                   <span className="font-mono">{deployment.version}</span>
+                  <span className="text-slate-200">·</span>
+                  <span className="font-semibold text-slate-500">{deploymentPlan}</span>
                   {langs.length > 0 && (
                     <>
                       <span className="text-slate-200">·</span>
@@ -235,6 +227,7 @@ export default function DeploymentDetailPage() {
               {[
                 { label: 'Functions', value: totalFns, icon: <Layers size={13} /> },
                 { label: 'Packages', value: Object.keys(deployment.packages ?? {}).length, icon: <Box size={13} /> },
+                { label: 'Plan', value: deploymentPlan, icon: <Server size={13} /> },
               ].map(item => (
                 <div key={item.label} className="flex flex-col gap-1 bg-gray-50 border-slate-200 rounded-lg px-3 py-2.5">
                   <div className="flex items-center gap-1.5 text-slate-400">

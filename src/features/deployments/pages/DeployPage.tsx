@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FolderArchive,
   ArrowRight,
@@ -8,12 +8,20 @@ import {
   FolderSync,
   GitBranch,
 } from 'lucide-react';
-import { Plans } from '@metacall/protocol/plan';
+import { normalizePlan, getPlanLabel, readStoredPlan, writeStoredPlan } from '@/shared/lib/plan';
 
 export default function DeployHubPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [plan] = useState<Plans>(Plans.Essential);
+  const searchParams = new URLSearchParams(location.search);
+  const plan = normalizePlan(
+    (location.state as { plan?: string } | null)?.plan ?? searchParams.get('plan') ?? readStoredPlan(),
+  );
+
+  useEffect(() => {
+    writeStoredPlan(plan);
+  }, [plan]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,12 +51,16 @@ export default function DeployHubPage() {
             MetaCall Deployment
           </h1>
           <p className="text-slate-500">Choose how you want to deploy your function</p>
+          <div className="mt-4 inline-flex items-center gap-2 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
+            <span>Current launchpad plan</span>
+            <span className="text-[--color-primary]">{getPlanLabel(plan)}</span>
+          </div>
         </div>
         {/* Deployment Source Selection */}
         <div className="grid md:grid-cols-2 gap-8 max-w-200 mx-auto w-full">
           {/* Deploy Repository */}
           <button
-            onClick={() => navigate('/deployments/new/repository')}
+            onClick={() => navigate('/deployments/new/repository', { state: { plan } })}
             className="text-left group relative flex items-center justify-between sm:block bg-white border border-gray-400 sm:border-gray-300 p-4 sm:p-8 transition-all duration-300 hover:border-blue-500 shadow-sm hover:shadow-md"
           >
             {/* Mobile left-aligned content */}

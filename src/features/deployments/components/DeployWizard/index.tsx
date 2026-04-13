@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { Plans } from '@metacall/protocol/plan';
 import { SVGLoader } from '@/shared/ui/LoadingState';
 import JSZip from 'jszip';
 import type { TreeNode } from './TreeNodeView';
@@ -10,6 +9,7 @@ import { TreeNodeView } from './TreeNodeView';
 import { TreeCheckbox } from './TreeCheckbox';
 import { EditorView } from './EditorView';
 import { type McConfig, buildJson } from './metacallConfig';
+import { getPlanLabel, normalizePlan, readStoredPlan, writeStoredPlan } from '@/shared/lib/plan';
 
 interface EnvRow {
   id: number;
@@ -45,10 +45,13 @@ function buildTree(paths: string[]): TreeNode {
 export default function DeployWizardPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
 
   // State from previous page
   const file = location.state?.file as File | undefined;
-  const plan = location.state?.plan as Plans | undefined;
+  const plan = normalizePlan(
+    (location.state?.plan as string | undefined) ?? searchParams.get('plan') ?? readStoredPlan(),
+  );
 
   // Local State
   const [deploying, setDeploying] = useState(false);
@@ -60,6 +63,10 @@ export default function DeployWizardPage() {
   const [envRows, setEnvRows] = useState<EnvRow[]>([{ id: 1, name: '', value: '' }]);
   const [mcConfigs, setMcConfigs] = useState<McConfig[]>([]);
   const [hiddenValues, setHiddenValues] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    writeStoredPlan(plan);
+  }, [plan]);
 
   // Parse Zip
   useEffect(() => {
@@ -175,7 +182,7 @@ export default function DeployWizardPage() {
         .filter(r => r.name.trim())
         .map(r => ({ name: r.name.trim(), value: r.value }));
 
-      const deployment = await api.deploy(deployName, envVars, plan || Plans.Essential, 'Package');
+      const deployment = await api.deploy(deployName, envVars, plan, 'Package');
       navigate(`/deployments/${deployment.suffix}`, { replace: true });
     } catch (error) {
       console.error('Deploy failed', error);
@@ -237,7 +244,7 @@ export default function DeployWizardPage() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1 bg-gray-100 text-gray-600">
-              Plan: <span className="text-[--color-primary]">{plan}</span>
+              Plan: <span className="text-[--color-primary]">{getPlanLabel(plan)}</span>
             </span>
           </div>
         </div>

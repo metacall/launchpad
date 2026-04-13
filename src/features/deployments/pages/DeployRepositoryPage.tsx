@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   X,
   GitBranch,
@@ -17,8 +17,8 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { Plans } from '@metacall/protocol/plan';
 import { Spinner } from '@/shared/ui/Spinner';
+import { getPlanLabel, normalizePlan, readStoredPlan, writeStoredPlan } from '@/shared/lib/plan';
 
 interface EnvRow {
   id: number;
@@ -28,6 +28,11 @@ interface EnvRow {
 
 export default function DeployRepositoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const plan = normalizePlan(
+    (location.state as { plan?: string } | null)?.plan ?? searchParams.get('plan') ?? readStoredPlan(),
+  );
 
   const [repositoryUrl, setRepositoryUrl] = useState('');
   const [branchName, setBranchName] = useState('');
@@ -39,6 +44,10 @@ export default function DeployRepositoryPage() {
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    writeStoredPlan(plan);
+  }, [plan]);
 
   const handleDeploy = async () => {
     if (!repositoryUrl.trim()) {
@@ -56,7 +65,7 @@ export default function DeployRepositoryPage() {
         .filter(r => r.name.trim())
         .map(r => ({ name: r.name.trim(), value: r.value }));
 
-      const deployment = await api.deploy(id, envVars, Plans.Essential, 'Repository');
+      const deployment = await api.deploy(id, envVars, plan, 'Repository');
       navigate(`/deployments/${deployment.suffix}`, { replace: true });
     } catch (err: unknown) {
       const error = err as { response?: { data?: string }; message?: string };
@@ -170,6 +179,9 @@ export default function DeployRepositoryPage() {
               </h1>
               <p className="hidden sm:block text-xs text-slate-500 mt-0.5">
                 Import a Git repository and deploy it as a FaaS function
+              </p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                Active launchpad plan: <span className="text-[--color-primary]">{getPlanLabel(plan)}</span>
               </p>
             </div>
           </div>
