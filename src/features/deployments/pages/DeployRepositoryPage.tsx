@@ -5,12 +5,9 @@ import {
   GitBranch,
   Code2,
   ArrowLeft,
-  FolderSync,
   Plus,
   AlertTriangle,
-  FileJson,
   Globe,
-  FolderOpen,
   ChevronDown,
   RefreshCw,
   Eye,
@@ -19,7 +16,6 @@ import {
 import { api } from '@/lib/api-client';
 import { Spinner } from '@/shared/ui/Spinner';
 import {
-  getPlanLabel,
   normalizePlan,
   readStoredPlan,
   toDeployPlan,
@@ -84,8 +80,6 @@ export default function DeployRepositoryPage() {
       setDeploying(false);
     }
   };
-
-  const nextEnvId = envRows.length > 0 ? Math.max(...envRows.map(r => r.id)) + 1 : 1;
 
   // Parse owner/repo from GitHub or GitLab URL
   function parseRepoInfo(url: string): { provider: 'github' | 'gitlab'; owner: string; repo: string } | null {

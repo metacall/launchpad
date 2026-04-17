@@ -9,7 +9,6 @@ import {
   GitBranch,
 } from 'lucide-react';
 import {
-  getPlanLabel,
   normalizePlan,
   readStoredPlan,
   writeStoredPlan,
