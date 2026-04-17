@@ -56,9 +56,6 @@ export default function DeployHubPage() {
             MetaCall Deployment
           </h1>
           <p className="text-slate-500">Choose how you want to deploy your function</p>
-          <div className="mt-4 inline-flex items-center gap-2 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-            <span className="text-[--color-primary]">{getPlanLabel(plan)}</span>
-          </div>
         </div>
         {/* Deployment Source Selection */}
         <div className="grid md:grid-cols-2 gap-8 max-w-200 mx-auto w-full">

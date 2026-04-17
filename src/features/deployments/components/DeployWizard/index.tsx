@@ -203,26 +203,9 @@ export default function DeployWizardPage() {
 
   const nextEnvId = envRows.length > 0 ? Math.max(...envRows.map(r => r.id)) + 1 : 1;
   const selectedFilesArray = Array.from(selectedPaths);
-
   if (!file) {
-    return (
-      <div className="grow flex flex-col items-center justify-center p-4 bg-slate-50/50">
-        <div className="flex flex-col items-center gap-2 text-center max-w-sm bg-white p-8 border border-gray-200 rounded-md">
-          <h2 className="text-xl font-bold text-slate-800 tracking-tight">
-            No Deployment File Found
-          </h2>
-          <p className="text-sm text-slate-500 mb-4 mt-1">
-            You must select a file from the Deploy Hub before configuring a deployment.
-          </p>
-          <button
-            onClick={() => navigate('/deployments/new')}
-            className="w-full px-6 py-2.5 text-gray-600 border border-gray-300 text-sm font-medium rounded hover:text-white hover:bg-gray-700 transition-colors shadow-sm"
-          >
-            Go to Deploy Hub
-          </button>
-        </div>
-      </div>
-    );
+    setDeployError('No deployment file found. Please select a file from the Deploy.');
+    return null;
   }
 
   return (
