@@ -5,7 +5,6 @@ import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { LanguageBadge } from '@/shared/ui/LanguageBadge';
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { ProgressBar } from '@/shared/ui/ProgressBar';
-import { Layers } from 'lucide-react';
 
 interface DeploymentTableProps {
   deployments: Deployment[];
@@ -20,26 +19,6 @@ export function DeploymentTable({
 }: DeploymentTableProps) {
   const navigate = useNavigate();
 
-  if (deployments.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center bg-gray-50/50">
-        <div className="w-12 h-12 bg-white flex items-center justify-center mb-4">
-          <Layers size={24} className="text-gray-400" />
-        </div>
-        <h3 className="text-sm font-bold text-gray-700">No deployments found</h3>
-        <p className="text-xs text-gray-500 mt-1 max-w-sm">
-          There are no deployments matching your current filters, or you haven't deployed anything
-          yet.
-        </p>
-        <button
-          onClick={() => navigate('/deployments/new')}
-          className="mt-4 px-4 py-2 text-black border border-gray-300 text-xs font-bold hover:text-white hover:bg-gray-700 transition-colors"
-        >
-          Create Deployment
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full overflow-x-auto">
@@ -49,11 +28,12 @@ export function DeploymentTable({
             <th className="py-3 px-4 font-bold">Name</th>
             <th className="py-3 px-4 font-bold">Language</th>
             <th className="py-3 px-4 font-bold">Status</th>
-            <th className="py-3 px-4 font-bold">Endpoint</th>
+            {/* i dont want to show the endpoint int he small screem  */}
+            <th className="py-3 px-4 font-bold hidden sm:table-cell">Endpoint</th>
             <th className="py-3 px-4 font-bold text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 hover:bg-blue-50 bg-white">
+        <tbody className="divide-y divide-gray-100 hover:bg-white bg-white">
           {deployments.map(dep => {
             const endpoint = `http://localhost:9000/${dep.prefix}/${dep.suffix}/v1/call`;
             const languages = Object.keys(dep.packages ?? {});
@@ -63,15 +43,13 @@ export function DeploymentTable({
             return (
               <tr
                 key={dep.suffix}
-                className="group hover:bg-blue-50/30 transition-colors cursor-pointer"
-                onClick={e => {
-                  // Don't navigate if clicking action buttons or copy button
-                  if ((e.target as HTMLElement).closest('button')) return;
+                className="group hover:bg-white/15 border border-transparent  cursor-pointer"
+                onClick={() => {
                   navigate(`/deployments/${dep.suffix}`);
                 }}
               >
                 <td className="py-3 px-4">
-                  <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">
+                  <span className="font-bold text-slate-600 text-sm group-hover:text-gray-600 transition-colors">
                     {dep.suffix}
                   </span>
                 </td>
@@ -80,7 +58,7 @@ export function DeploymentTable({
                     {languages.length > 0 ? (
                       languages.map(lang => <LanguageBadge key={lang} language={lang} />)
                     ) : (
-                      <span className="text-xs text-gray-400 italic">Unknown</span>
+                      <span className="text-xs text-gray-500 italic">Unknown</span>
                     )}
                   </div>
                 </td>
@@ -100,12 +78,14 @@ export function DeploymentTable({
                     )}
                   </div>
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 hidden sm:table-cell">
                   <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                    <code className="max-w-45 sm:max-w-60 truncate text-[11px] text-gray-500 font-mono bg-gray-50 border border-gray-200 px-1.5 py-0.5 shadow-inner">
+                    <code className="max-w-45 sm:max-w-60 truncate text-[11px] text-gray-500 hover:text-gray-600 font-mono border border-gray-100 px-1.5 py-0.5 shadow-inner">
                       {endpoint}
                     </code>
-                    <CopyButton text={endpoint} />
+                    <span className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors">
+                      <CopyButton text={endpoint} />
+                    </span>
                   </div>
                 </td>
                 <td className="py-3 px-4 text-right">
@@ -115,7 +95,7 @@ export function DeploymentTable({
                         e.stopPropagation();
                         navigate(`/deployments/${dep.suffix}`);
                       }}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200"
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border border-transparent"
                       title="View Details"
                     >
                       <ExternalLink size={14} />
@@ -126,7 +106,7 @@ export function DeploymentTable({
                           e.stopPropagation();
                           onDelete(dep.suffix);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-200"
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent"
                         title="Delete Deployment"
                       >
                         <Trash2 size={14} />

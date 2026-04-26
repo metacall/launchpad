@@ -4,7 +4,7 @@ import { Home, Plus, X, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useDeployments } from '@/features/deployments/hooks/useDeployments';
 import { api } from '@/lib/api-client';
 import { DeploymentTable } from '@/features/deployments/components/DeploymentTable';
-import { Spinner } from '@/shared/ui/Spinner';
+import { LoadingOverlay } from '@/shared/ui/LoadingState';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
 
 export default function DeploymentsPage() {
@@ -113,11 +113,7 @@ export default function DeploymentsPage() {
           {/* Table Container */}
           <div className="bg-white border border-gray-300 w-full relative">
             {loading && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                <div className="bg-white border border-gray-200 shadow-lg px-4 py-3 flex items-center gap-3 font-semibold text-sm text-slate-700">
-                  <Spinner size={16} /> Syncing network...
-                </div>
-              </div>
+              <LoadingOverlay message="Syncing network…" spinnerSize={16} />
             )}
             <DeploymentTable deployments={deployments} onDelete={suffix => setPending(suffix)} />
           </div>

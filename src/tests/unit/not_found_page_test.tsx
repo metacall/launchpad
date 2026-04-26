@@ -13,6 +13,6 @@ describe('NotFoundPage', () => {
   it('renders navigation buttons', () => {
     render(<MemoryRouter><NotFoundPage /></MemoryRouter>);
     expect(screen.getByRole('button', { name: /go back/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /dashboard/i })).toBeTruthy();
+    expect(screen.getByText(/metacall dashboard/i)).toBeTruthy();
   });
 });

@@ -1,37 +1,34 @@
 import { useNavigate } from 'react-router-dom';
-import { Home, ArrowLeft } from 'lucide-react';
+import { Home } from 'lucide-react';
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4">
-      {/* 404 visual */}
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-[80px] font-black text-slate-200 leading-none select-none">404</span>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold text-slate-800">Page not found</h1>
-          <p className="text-sm text-slate-500 max-w-xs">
-            The page you&apos;re looking for doesn&apos;t exist or has been moved.
-          </p>
+    <div className="flex items-center justify-center min-h-[calc(70vh-10px)] sm:min-h-[70vh] px-4 bg-white">
+      <div className="w-full max-w-3xl flex flex-col items-center gap-8">
+        <div className="flex items-center gap-2 text-slate-900 font-semibold text-lg">
+          <img src="/logo.svg" alt="MetaCall Hub logo" className="h-14 w-14 object-contain" />
+          <span className=' text-xl font-[600]' >MetaCall Dashboard</span>
         </div>
-      </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-slate-300 text-slate-600 rounded hover:bg-slate-50 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          Go back
-        </button>
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+          <div className="text-6xl font-[500] text-slate-900">404</div>
+          <div className="hidden sm:block h-12 w-px bg-slate-200" />
+          <div className="text-center sm:text-left space-y-1 max-w-xl">
+            <h1 className="text-2xl sm:text-5xl font-[400] text-slate-900">Page not found</h1>
+            <p className="text-[18px] text-slate-500">
+              The page you&apos;re looking for doesn&apos;t exist or may have moved.
+            </p>
+          </div>
+        </div>
+
         <button
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md bg-gray-600 text-white hover:bg-slate-800 transition-colors cursor-pointer Check out our"
         >
           <Home size={14} />
-          Dashboard
+          Go back home
         </button>
       </div>
     </div>

@@ -5,12 +5,9 @@ import {
   GitBranch,
   Code2,
   ArrowLeft,
-  FolderSync,
   Plus,
   AlertTriangle,
-  FileJson,
   Globe,
-  FolderOpen,
   ChevronDown,
   RefreshCw,
   Eye,
@@ -47,10 +44,12 @@ export default function DeployRepositoryPage() {
   const [branches, setBranches] = useState<string[]>([]);
   const [branchLoading, setBranchLoading] = useState(false);
   const [branchFetchError, setBranchFetchError] = useState('');
-  const [envRows, setEnvRows] = useState<EnvRow[]>([{ id: 1, name: '', value: '' }]);
+  const [envRows, setEnvRows] = useState<EnvRow[]>([]);
   const [hiddenValues, setHiddenValues] = useState<Set<number>>(new Set());
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
+  const [envExpanded, setEnvExpanded] = useState(false);
+  const [detectedLanguages, setDetectedLanguages] = useState<string>('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -98,8 +97,6 @@ export default function DeployRepositoryPage() {
     }
   };
 
-  const nextEnvId = envRows.length > 0 ? Math.max(...envRows.map(r => r.id)) + 1 : 1;
-
   // Parse owner/repo from GitHub or GitLab URL
   function parseRepoInfo(url: string): { provider: 'github' | 'gitlab'; owner: string; repo: string } | null {
     try {
@@ -126,6 +123,7 @@ export default function DeployRepositoryPage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setBranches([]);
     setBranchFetchError('');
+    setDetectedLanguages('');
 
     const info = parseRepoInfo(repositoryUrl);
     if (!info) return;
@@ -135,8 +133,10 @@ export default function DeployRepositoryPage() {
       try {
         let names: string[] = [];
         let defaultBranch = 'main';
+        let rawUrl = '';
 
         if (info.provider === 'github') {
+          rawUrl = `https://raw.githubusercontent.com/${info.owner}/${info.repo}`;
           const [repoRes, branchRes] = await Promise.all([
             fetch(`https://api.github.com/repos/${info.owner}/${info.repo}`),
             fetch(`https://api.github.com/repos/${info.owner}/${info.repo}/branches?per_page=100`),
@@ -147,6 +147,7 @@ export default function DeployRepositoryPage() {
           const branchData = await branchRes.json() as { name: string }[];
           names = Array.isArray(branchData) ? branchData.map(b => b.name) : [];
         } else {
+          rawUrl = `https://gitlab.com/${info.owner}/${info.repo}/-/raw`;
           const encoded = encodeURIComponent(`${info.owner}/${info.repo}`);
           const [projRes, branchRes] = await Promise.all([
             fetch(`https://gitlab.com/api/v4/projects/${encoded}`),
@@ -167,6 +168,51 @@ export default function DeployRepositoryPage() {
         });
         setBranches(names);
         setBranchName(prev => (prev.trim() && names.includes(prev.trim()) ? prev : defaultBranch));
+
+        // Try to detect languages from metacall.json
+        try {
+          const metacallUrl = `${rawUrl}/${defaultBranch}/metacall.json`;
+          const metacallRes = await fetch(metacallUrl);
+          if (metacallRes.ok) {
+            const metacallData = await metacallRes.json() as {
+              runtime?: string | string[];
+              runtimes?: string[];
+              language?: string;
+              languages?: string[];
+            };
+
+            let langs: string[] = [];
+
+            // Extract languages from various possible fields
+            if (metacallData.runtimes && Array.isArray(metacallData.runtimes)) {
+              langs = metacallData.runtimes;
+            } else if (metacallData.runtime) {
+              langs = Array.isArray(metacallData.runtime) ? metacallData.runtime : [metacallData.runtime];
+            } else if (metacallData.languages && Array.isArray(metacallData.languages)) {
+              langs = metacallData.languages;
+            } else if (metacallData.language) {
+              langs = [metacallData.language];
+            }
+
+            // Normalize language names
+            if (langs.length > 0) {
+              const normalizedLangs = langs.map(l => {
+                const normalized = l.toLowerCase().trim();
+                if (normalized.includes('node') || normalized.includes('javascript') || normalized.includes('js')) return 'Node.js';
+                if (normalized.includes('python') || normalized.includes('py')) return 'Python';
+                if (normalized.includes('ruby') || normalized.includes('rb')) return 'Ruby';
+                if (normalized.includes('go') || normalized.includes('golang')) return 'Go';
+                if (normalized.includes('rust')) return 'Rust';
+                if (normalized.includes('java')) return 'Java';
+                if (normalized.includes('dotnet') || normalized.includes('csharp') || normalized.includes('c#')) return 'C#';
+                return l;
+              });
+              setDetectedLanguages(normalizedLangs.join(' + '));
+            }
+          }
+        } catch {
+          // Silently fail if metacall.json can't be fetched
+        }
       } catch (err: unknown) {
         setBranchFetchError((err as Error).message ?? 'Could not fetch branches.');
       } finally {
@@ -177,20 +223,17 @@ export default function DeployRepositoryPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [repositoryUrl]);
   return (
-    <div className="grow flex flex-col items-center justify-start p-4 sm:p-8 pt-6 animate-in fade-in duration-500 relative overflow-hidden">
-      <div className="absolute top-[-8%] right-[5%] w-96 h-96 bg-blue-500/3 rounded-full blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-[-8%] left-[-4%] w-96 h-96 bg-violet-500/3 rounded-full blur-[80px] pointer-events-none" />
+    <div className="grow flex flex-col items-center justify-start p-4 sm:p-8 pt-6 animate-in fade-in duration-500">
+      <div className="w-full max-w-4xl flex flex-col gap-6">
 
-      <div className="w-full max-w-4xl z-10 flex flex-col gap-8">
-
-        {/* Page header */}
-        <div className="flex items-center gap-4 pb-4 border-b border-slate-200">
+        {/* Page Header */}
+        <div className="flex items-start gap-3">
           <button
             onClick={() => navigate('/deployments/new')}
-            className="p-2 bg-white text-slate-500 border border-gray-200  hover:bg-slate-50 hover:text-slate-800 transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg transition-colors shrink-0 mt-1"
             title="Back"
           >
-            <ArrowLeft size={15} />
+            <ArrowLeft size={18} strokeWidth={1.5} />
           </button>
           <div className="flex items-center gap-3 flex-1">
             <div className="w-9 h-9 flex items-center justify-center bg-white">
@@ -211,25 +254,23 @@ export default function DeployRepositoryPage() {
         </div>
 
         {/* Source Configuration */}
-        <div className="bg-white  overflow-hidden">
-          {/* Section header */}
-          <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
-            <GitBranch size={14} className="text-slate-400" />
-            <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="px-4 py-2 border-b border-slate-100">
+            <h2 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+              <GitBranch size={16} className="text-blue-600" strokeWidth={1.5} />
               Source Configuration
-            </span>
+            </h2>
           </div>
 
-          <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-            {/* Left: inputs */}
-            <div className="flex flex-col gap-6">
-              {/* Repository URL */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  Repository URL <span className="text-red-400">*</span>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Repository URL */}
+            <div className="md:col-span-2 flex flex-col gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold text-slate-900">
+                  Repository URL <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center gap-2 bg-slate-50 px-3 py-2.5 focus-within:border-blue-400 focus-within:bg-white transition-colors overflow-hidden">
-                  <Globe size={14} className="text-slate-400 shrink-0" />
+                <div className="flex items-center gap-3 border border-slate-200 rounded-lg px-4 py-3 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+                  <Globe size={16} className="text-slate-400 shrink-0" strokeWidth={1.5} />
                   <input
                     type="url"
                     inputMode="url"
@@ -239,258 +280,216 @@ export default function DeployRepositoryPage() {
                       if (deployError) setDeployError('');
                     }}
                     placeholder="https://github.com/user/repo"
-                    className="flex-1 min-w-0 bg-transparent text-sm font-mono text-slate-800 outline-none placeholder:text-slate-300"
+                    className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                   />
                 </div>
               </div>
 
-              {/* Branch */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Branch
-                  </label>
+                  <label className="text-sm font-semibold text-slate-900">Branch</label>
                   {branchLoading && (
-                    <span className="flex items-center gap-1 text-[10px] text-blue-500 font-medium">
-                      <RefreshCw size={10} className="animate-spin" /> Detecting…
+                    <span className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                      <RefreshCw size={12} className="animate-spin" /> Detecting…
                     </span>
                   )}
                   {!branchLoading && branches.length > 0 && (
-                    <span className="text-[10px] text-emerald-600 font-semibold">
-                      {branches.length} branch{branches.length !== 1 ? 'es' : ''} detected
+                    <span className="text-xs text-emerald-600 font-semibold">
+                      {branches.length} branch{branches.length !== 1 ? 'es' : ''} found
                     </span>
                   )}
                 </div>
 
                 {branches.length > 0 ? (
-                  <div className="relative flex items-center bg-slate-50 focus-within:border-blue-400 focus-within:bg-white transition-colors">
-                    <GitBranch size={14} className="absolute left-3 text-slate-400 pointer-events-none" />
+                  <div className="relative flex items-center border border-slate-200 rounded-lg focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+                    <GitBranch size={16} className="absolute left-4 text-slate-400 pointer-events-none" strokeWidth={1.5} />
                     <select
                       value={branchName}
                       onChange={e => setBranchName(e.target.value)}
-                      className="w-full pl-8 pr-8 py-2.5 bg-transparent text-sm font-mono text-slate-800 outline-none appearance-none cursor-pointer"
+                      className="w-full pl-12 pr-10 py-3 bg-transparent text-sm text-slate-800 outline-none appearance-none cursor-pointer"
                     >
                       {branches.map(b => (
                         <option key={b} value={b}>{b}</option>
                       ))}
                     </select>
-                    <ChevronDown size={14} className="absolute right-3 text-slate-400 pointer-events-none" />
+                    <ChevronDown size={16} className="absolute right-3 text-slate-400 pointer-events-none" strokeWidth={1.5} />
                   </div>
                 ) : (
-                  <div className={`flex items-center gap-2  bg-slate-50 px-3 py-2.5  focus-within:bg-white transition-colors ${branchFetchError ? 'border-amber-300' : 'border-slate-200'}`}>
-                    <GitBranch size={14} className="text-slate-400 shrink-0" />
+                  <div className={`flex items-center gap-3 border rounded-lg px-4 py-3 transition-all ${branchFetchError ? 'border-amber-300' : 'border-slate-200'}`}>
+                    <GitBranch size={16} className="text-slate-400 shrink-0" strokeWidth={1.5} />
                     <input
                       type="text"
                       value={branchName}
                       onChange={e => setBranchName(e.target.value)}
                       placeholder="main"
-                      className="flex-1 bg-transparent text-sm font-mono text-slate-800 outline-none placeholder:text-slate-300"
+                      className="flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                     />
                   </div>
                 )}
 
                 {branchFetchError && !branchLoading && (
-                  <p className="text-[11px] text-amber-600 mt-0.5">
-                    ⚠ {branchFetchError} — enter branch manually.
-                  </p>
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200/50 rounded-lg px-3 py-2.5 animate-in fade-in duration-300">
+                    <button
+                      onClick={() => setBranchFetchError('')}
+                      className="text-amber-600 hover:text-amber-800 transition-colors flex-shrink-0 mt-0.5"
+                      title="Dismiss"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                    <span>{branchFetchError} — enter branch manually.</span>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Right: info panel */}
-            <div className="flex flex-col gap-3">
-              {/* Info notice */}
-              <div className="flex items-start gap-3 p-3.5 text-sm text-emerald-900">
-                <FileJson size={16} className="shrink-0 mt-0.5 text-emerald-600" />
-                <p className="text-[13px] leading-relaxed">
-                  Your repository must include a{' '}
-                  <strong className="font-bold">metacall.json</strong> at the root to configure
-                  language runtimes and entry points.
-                </p>
+            {/* Info Panel */}
+            <div className="md:col-span-1 flex flex-col gap-4">
+              <div className="bg-blue-50 border border-blue-200/50 rounded-lg p-4 text-xs leading-relaxed text-blue-900">
+                <p className="font-semibold mb-2">Requirement</p>
+                <p>Your repository must include a <code className="bg-blue-100 px-1.5 py-0.5 rounded font-mono text-[11px]">metacall.json</code> at the root.</p>
               </div>
 
-              {/* Detected framework card */}
-              <div className="bg-slate-50 border border-slate-200 p-5 flex flex-col gap-3.5">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 pb-2.5">
-                  <FolderOpen size={12} />
-                  Detected Framework
-                </div>
-                {[
-                  { label: 'Language Support', value: 'Node.js + Python', mono: true, blue: true },
-                  { label: 'Root Directory', value: '/', mono: true, blue: false },
-                  { label: 'Build Context', value: 'metacall.json', mono: true, blue: false },
-                ].map(item => (
-                  <div key={item.label} className="flex items-center justify-between">
-                    <span className="text-[12px] text-slate-500">{item.label}</span>
-                    <span
-                      className={`text-[12px] font-semibold ${item.blue ? 'text-blue-500' : 'text-slate-700'} ${item.mono ? 'font-mono' : ''}`}
-                    >
-                      {item.value}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest mb-3">Framework Details</h3>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Languages</span>
+                    <span className="font-semibold text-gray-600">
+                      {detectedLanguages ? detectedLanguages : (branchLoading ? 'Detecting…' : 'Not detected')}
                     </span>
                   </div>
-                ))}
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Root Path</span>
+                    <span className="font-mono text-slate-900">/</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Environment Variables  */}
-        <div className="bg-white overflow-hidden">
-          <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Code2 size={14} className="text-slate-400 shrink-0" />
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest truncate">
-                <span className="hidden sm:inline">Environment Variables</span>
-                <span className="sm:hidden">Env Vars</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-medium ml-1 shrink-0">
-                ({envRows.filter(r => r.name.trim()).length} set)
-              </span>
-            </div>
-            <button
-              onClick={() => setEnvRows([...envRows, { id: nextEnvId, name: '', value: '' }])}
-              className="flex items-center gap-1.5 text-[11px] font-bold text-blue-500 hover:text-blue-600 uppercase tracking-wider transition-colors cursor-pointer shrink-0 ml-3"
-            >
-              <Plus size={13} strokeWidth={3} />
-              <span className="hidden sm:inline">Add Variable</span>
-              <span className="sm:hidden">Add</span>
-            </button>
-          </div>
-
-          <div className="p-3 sm:p-5 flex flex-col gap-0">
-            {/* Column headers — hidden on mobile */}
-            <div className="hidden sm:grid grid-cols-[1fr_1fr_64px] gap-4 pb-2 border-b border-slate-100 mb-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Key</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Value</span>
-              <span />
-            </div>
-
-            {envRows.map((row, idx) => (
-              <div
-                key={row.id}
-                className="relative flex flex-col sm:grid sm:grid-cols-[1fr_1fr_64px] gap-2 sm:gap-4 sm:items-center py-3 border-b border-slate-100 last:border-b-0 group"
-              >
-                {/* Mobile labels */}
-                <div className="flex flex-col gap-2 sm:contents">
-                  <div className="flex flex-col gap-1 sm:contents">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest sm:hidden px-1">Key</span>
-                    <div className="flex items-center gap-2 sm:contents">
-                      <input
-                        placeholder="VARIABLE_NAME"
-                        value={row.name}
-                        onChange={e => {
-                          const updated = [...envRows];
-                          updated[idx] = {
-                            ...updated[idx],
-                            name: e.target.value.toUpperCase().replace(/\s+/g, '_'),
-                          };
-                          setEnvRows(updated);
-                        }}
-                        className="w-full border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-mono text-slate-800 outline-none focus:border-blue-400 focus:bg-white transition-colors placeholder:text-slate-300"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1 sm:contents">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest sm:hidden px-1">Value</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        placeholder="value"
-                        value={row.value}
-                        type={hiddenValues.has(row.id) ? 'password' : 'text'}
-                        onChange={e => {
-                          const updated = [...envRows];
-                          updated[idx] = { ...updated[idx], value: e.target.value };
-                          setEnvRows(updated);
-                        }}
-                        className="flex-1 border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-mono text-slate-800 outline-none focus:border-blue-400 focus:bg-white transition-colors placeholder:text-slate-300"
-                      />
-                      {/* Eye btn inline on mobile */}
-                      <button
-                        onClick={() =>
-                          setHiddenValues(prev => {
-                            const next = new Set(prev);
-                            if (next.has(row.id)) { next.delete(row.id); } else { next.add(row.id); }
-                            return next;
-                          })
-                        }
-                        className="sm:hidden flex items-center justify-center w-8 h-8 shrink-0 text-slate-400 hover:text-slate-700 transition-colors border border-slate-200"
-                        title={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
-                      >
-                        {hiddenValues.has(row.id) ? <EyeOff size={13} /> : <Eye size={13} />}
-                      </button>
-                      {/* Delete btn inline on mobile */}
-                      <button
-                        onClick={() => setEnvRows(envRows.filter(r => r.id !== row.id))}
-                        className="sm:hidden flex items-center justify-center w-8 h-8 shrink-0 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors border border-slate-200"
-                        title="Remove"
-                      >
-                        <X size={14} strokeWidth={2.5} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                {/* Eye + Delete btns on desktop */}
-                <div className="hidden sm:flex items-center gap-1">
-                  <button
-                    onClick={() =>
-                      setHiddenValues(prev => {
-                        const next = new Set(prev);
-                        if (next.has(row.id)) { next.delete(row.id); } else { next.add(row.id); }
-                        return next;
-                      })
-                    }
-                    className={`flex items-center justify-center w-8 h-8 text-slate-400 hover:text-slate-700 transition-all ${hiddenValues.has(row.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}
-                    title={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
-                  >
-                    {hiddenValues.has(row.id) ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
-                  <button
-                    onClick={() => setEnvRows(envRows.filter(r => r.id !== row.id))}
-                    className="flex items-center justify-center w-8 h-8 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Remove"
-                  >
-                    <X size={14} strokeWidth={2.5} />
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {envRows.length === 0 && (
-              <p className="py-6 text-center text-sm text-slate-400 italic">
-                No environment variables defined.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Error banner */}
-        {deployError && (
-          <div className="flex items-center gap-2 text-xs text-red-600 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <button
-              onClick={() => setDeployError('')}
-              className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
-              aria-label="Clear error"
-            >
-              <X size={14} />
-            </button>
-            <span className="text-gray-400">|</span>
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={14} />
-              <span>{deployError}</span>
-            </div>
-          </div>
-        )}
-        {/*  Actions  */}
-        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-6">
+        {/* Environment Variables - Collapsible */}
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
           <button
-            onClick={() => navigate('/deployments/new')}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-white border border-gray-200 hover:bg-slate-50 transition-colors"
+            onClick={() => setEnvExpanded(!envExpanded)}
+            className="w-full px-4 py-2 border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-between"
           >
-            <ArrowLeft size={14} />
-            Back
+            <h2 className="text-sm lg:text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+              <Code2 size={16} className="text-blue-600" strokeWidth={1.5} />
+              Environment Variables
+            </h2>
+            <div className="flex items-center gap-2">
+              {envExpanded && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newId = envRows.length > 0 ? Math.max(...envRows.map(r => r.id)) + 1 : 1;
+                    setEnvRows([...envRows, { id: newId, name: '', value: '' }]);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Add environment variable"
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Add Var</span>
+                </button>
+              )}
+              <ChevronDown
+                size={18}
+                className={`text-slate-400 transition-transform duration-200 ${envExpanded ? 'rotate-180' : ''}`}
+                strokeWidth={1.5}
+              />
+            </div>
           </button>
 
+          {/* Expandable Content */}
+          {envExpanded && (
+            <div className="px-6 py-4 border-t border-slate-100 animate-in fade-in duration-200">
+              {envRows.length > 0 && (
+                <div className="mb-4">
+                  <div className="hidden sm:grid grid-cols-[1fr_1fr_80px] gap-4 pb-3 mb-2 border-b border-slate-100">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Key</span>
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Value</span>
+                    <span />
+                  </div>
+
+                  {envRows.map((row, idx) => (
+                    <div key={row.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_80px] gap-3 sm:items-center py-3 border-b border-slate-100 last:border-b-0 group">
+                      <div className="flex flex-col sm:contents gap-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase sm:hidden">Key</span>
+                        <input
+                          placeholder="VAR_NAME"
+                          value={row.name}
+                          onChange={e => {
+                            const updated = [...envRows];
+                            updated[idx] = {
+                              ...updated[idx],
+                              name: e.target.value.toUpperCase().replace(/\s+/g, '_'),
+                            };
+                            setEnvRows(updated);
+                          }}
+                          className="border border-slate-200 bg-slate-50 rounded px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:contents gap-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase sm:hidden">Value</span>
+                        <input
+                          placeholder="value"
+                          value={row.value}
+                          type={hiddenValues.has(row.id) ? 'password' : 'text'}
+                          onChange={e => {
+                            const updated = [...envRows];
+                            updated[idx] = { ...updated[idx], value: e.target.value };
+                            setEnvRows(updated);
+                          }}
+                          className="border border-slate-200 bg-slate-50 rounded px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1 sm:justify-center">
+                        <button
+                          onClick={() => {
+                            const next = new Set(hiddenValues);
+                            next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                            setHiddenValues(next);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                          title={hiddenValues.has(row.id) ? 'Show' : 'Hide'}
+                        >
+                          {hiddenValues.has(row.id) ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                        <button
+                          onClick={() => setEnvRows(envRows.filter(r => r.id !== row.id))}
+                          className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                          title="Delete"
+                        >
+                          <X size={14} strokeWidth={2} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+        </div>
+        {/* Error Banner */}
+        {deployError && (
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 animate-in fade-in duration-300">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" strokeWidth={2} />
+            <div className="flex-1 text-sm">{deployError}</div>
+            <button
+              onClick={() => setDeployError('')}
+              className="text-red-400 hover:text-red-600 transition-colors"
+            >
+              <X size={16} strokeWidth={2} />
+            </button>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-2">
           <button
             onClick={handleDeploy}
             disabled={deploying || !repositoryUrl.trim() || !plan}
@@ -498,8 +497,7 @@ export default function DeployRepositoryPage() {
             title={!plan ? 'Select a plan first to deploy' : !repositoryUrl.trim() ? 'Enter repository URL to deploy' : ''}
           >
             {deploying && <Spinner size={14} />}
-            <span className="sm:hidden">{deploying ? 'Deploying…' : 'Deploy'}</span>
-            <span className="hidden sm:inline">{deploying ? 'Deploying…' : 'Deploy Repository'}</span>
+            {deploying ? 'Deploying…' : 'Deploy Repository'}
           </button>
         </div>
       </div>

@@ -5,8 +5,16 @@ import { api } from '@/lib/api-client';
 import type { Deployment } from '@/shared/types';
 import { AlertTriangle, Plus, RefreshCw, X } from 'lucide-react';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
-import { Spinner } from '@/shared/ui/Spinner';
+import { InlineLoading, LoadingOverlay } from '@/shared/ui/LoadingState';
 import { DeploymentTable } from '@/features/deployments/components/DeploymentTable';
+import {
+  FREE_PLAN,
+  getPlanLabel,
+  normalizePlan,
+  resolveDeploymentPlan,
+  writeStoredPlan,
+} from '@/shared/lib/plan';
+import { Plans } from '@metacall/protocol/plan';
 
 interface PendingDeploymentEntry {
   suffix: string;
@@ -35,24 +43,28 @@ function writePendingDeployments(entries: PendingDeploymentEntry[]) {
 
 // Plan config
 const PLAN_CLASSES: Record<string, { headerBg: string; plusHover: string }> = {
-  'Essential Plan': {
+  Free: {
+    headerBg: 'bg-gradient-to-r from-gray-600 to-gray-400',
+    plusHover: 'hover:bg-gray-500 hover:text-white hover:border-gray-500',
+  },
+  [Plans.Essential]: {
     headerBg: 'bg-gradient-to-r from-blue-600 to-blue-400',
     plusHover: 'hover:bg-blue-500 hover:text-white hover:border-blue-500',
   },
-  'Standard Plan': {
+  [Plans.Standard]: {
     headerBg: 'bg-gradient-to-r from-violet-600 to-purple-400',
     plusHover: 'hover:bg-violet-500 hover:text-white hover:border-violet-500',
   },
-  'Premium Plan': {
+  [Plans.Premium]: {
     headerBg: 'bg-gradient-to-r from-rose-500 to-pink-400',
     plusHover: 'hover:bg-rose-500 hover:text-white hover:border-rose-500',
   },
 };
 
-const PLAN_ORDER = ['Essential Plan', 'Standard Plan', 'Premium Plan'] as const;
+const PLAN_ORDER = [Plans.Essential, Plans.Standard, Plans.Premium] as const;
 
 function getPlanClasses(plan?: string) {
-  return PLAN_CLASSES[plan ?? ''] ?? PLAN_CLASSES['Essential Plan'];
+  return PLAN_CLASSES[normalizePlan(plan)] ?? PLAN_CLASSES[Plans.Essential];
 }
 
 // Deploy row
@@ -72,20 +84,23 @@ function DeployRow({ onClick, plusHover }: { onClick: () => void; plusHover: str
   );
 }
 
-// New Deploy card
+// free Deploy card
 function NewDeployCard() {
   const navigate = useNavigate();
-  const { plusHover } = getPlanClasses('Free Plan');
+  const { plusHover } = PLAN_CLASSES.Free;
   return (
     <div
       className="flex flex-col cursor-pointer border border-gray-200 bg-white hover:shadow-sm transition-all"
-      onClick={() => navigate('/deployments/new')}
+      onClick={() => navigate('/deployments/new', { state: { plan: FREE_PLAN } })}
     >
       <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white bg-gray-500">
         <span>New Deploy</span>
         <span className="opacity-80">Free Plan</span>
       </div>
-      <DeployRow onClick={() => navigate('/deployments/new')} plusHover={plusHover} />
+      <DeployRow
+        onClick={() => navigate('/deployments/new', { state: { plan: FREE_PLAN } })}
+        plusHover={plusHover}
+      />
     </div>
   );
 }
@@ -93,8 +108,10 @@ function NewDeployCard() {
 // Launchpad card (active deployment)
 function LaunchpadCard({ dep, onDeploy }: { dep: Deployment; onDeploy: () => void }) {
   const navigate = useNavigate();
-  const plan =
-    ((dep as unknown as Record<string, unknown>).plan as string | undefined) ?? 'Essential Plan';
+  const plan = resolveDeploymentPlan({
+    suffix: dep.suffix,
+    plan: (dep as unknown as Record<string, unknown>).plan as string | undefined,
+  });
   const { headerBg, plusHover } = getPlanClasses(plan);
   return (
     <div
@@ -105,7 +122,7 @@ function LaunchpadCard({ dep, onDeploy }: { dep: Deployment; onDeploy: () => voi
         className={`flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white ${headerBg}`}
       >
         <span className="truncate">{dep.suffix || 'Empty launchpad'}</span>
-        <span className="opacity-80 ml-2 shrink-0">{plan}</span>
+        <span className="opacity-80 ml-2 shrink-0">{getPlanLabel(plan)}</span>
       </div>
       <DeployRow onClick={() => onDeploy()} plusHover={plusHover} />
     </div>
@@ -127,7 +144,7 @@ function EmptyLaunchpadCard({ plan, onClick, isAlreadyUsed }: { plan: string; on
         className={`flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white ${bgClass}`}
       >
         <span>Empty launchpad</span>
-        <span className="opacity-80">{plan}</span>
+        <span className="opacity-80">{getPlanLabel(plan)}</span>
       </div>
       {!isAlreadyUsed && <DeployRow onClick={onClick} plusHover={hoverClass} />}
       {isAlreadyUsed && (
@@ -236,7 +253,7 @@ export default function DashboardPage() {
   const launchpadSlots = PLAN_ORDER.map(planId => {
     const dep = deployments.find(
       d =>
-        ((d as unknown as Record<string, unknown>).plan as string | undefined) === planId,
+        normalizePlan((d as unknown as Record<string, unknown>).plan as string | undefined) === planId,
     );
     return { planId, dep: dep ?? null };
   });
@@ -259,10 +276,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-8">
         {/* Loading */}
         {loading && (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <Spinner size={14} />
-            <span>Fetching deployments…</span>
-          </div>
+          <InlineLoading message="Fetching deployments…" spinnerSize={14} />
         )}
 
         {error && (
@@ -285,7 +299,7 @@ export default function DashboardPage() {
         {/* Launchpad grid always shows all plan slots */}
         {!loading && (
           <div className="flex flex-col gap-3">
-            <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
               Launchpads
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -295,7 +309,10 @@ export default function DashboardPage() {
                   <LaunchpadCard
                     key={planId}
                     dep={dep}
-                    onDeploy={() => navigate('/deployments/new')}
+                    onDeploy={() => {
+                      writeStoredPlan(planId);
+                      navigate('/deployments/new', { state: { plan: planId } });
+                    }}
                   />
                 ) : (
                   <EmptyLaunchpadCard
@@ -303,10 +320,16 @@ export default function DashboardPage() {
                     plan={planId}
                     isAlreadyUsed={deployments.some(
                       d =>
-                        ((d as unknown as Record<string, unknown>).plan as string | undefined) ===
-                        planId,
+                        normalizePlan(
+                          (d as unknown as Record<string, unknown>).plan as string | undefined,
+                        ) === planId,
                     )}
-                    onClick={() => navigate(deployments.length > 0 ? '/deployments/new' : '/plans')}
+                    onClick={() => {
+                      writeStoredPlan(planId);
+                      navigate(deployments.length > 0 ? '/deployments/new' : '/plans', {
+                        state: { plan: planId },
+                      });
+                    }}
                   />
                 ),
               )}
@@ -318,7 +341,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
                   Deployments
                 </h2>
               </div>
@@ -334,11 +357,7 @@ export default function DashboardPage() {
 
             <div className="bg-white border border-gray-200 w-full relative">
               {loading && visibleDeployments.length > 0 && (
-                <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="bg-white border border-gray-200 shadow-lg px-4 py-3 flex items-center gap-3 font-semibold text-sm text-slate-700">
-                    <Spinner size={16} /> Syncing network...
-                  </div>
-                </div>
+                <LoadingOverlay message="Syncing network…" spinnerSize={16} />
               )}
               <DeploymentTable
                 deployments={visibleDeployments}

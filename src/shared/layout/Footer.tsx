@@ -1,6 +1,6 @@
 export function Footer() {
   return (
-    <footer className="w-full bg-white mt-auto">
+    <footer className="w-full p-6 sm:pb-0.5 bg-white mt-auto">
       <div className="w-full max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-xs text-slate-400">
           &copy; {new Date().getFullYear()} MetaCall Inc. All rights reserved.

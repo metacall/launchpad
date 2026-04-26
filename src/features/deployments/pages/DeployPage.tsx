@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FolderArchive,
   ArrowRight,
@@ -8,12 +8,24 @@ import {
   FolderSync,
   GitBranch,
 } from 'lucide-react';
-import { Plans } from '@metacall/protocol/plan';
+import {
+  normalizePlan,
+  readStoredPlan,
+  writeStoredPlan,
+} from '@/shared/lib/plan';
 
 export default function DeployHubPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [plan] = useState<Plans>(Plans.Essential);
+  const searchParams = new URLSearchParams(location.search);
+  const plan = normalizePlan(
+    (location.state as { plan?: string } | null)?.plan ?? searchParams.get('plan') ?? readStoredPlan(),
+  );
+
+  useEffect(() => {
+    writeStoredPlan(plan);
+  }, [plan]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -38,9 +50,9 @@ export default function DeployHubPage() {
   return (
     <div className="grow flex flex-col items-center justify-start p-6 pt-12 relative overflow-hidden animate-in fade-in duration-500 bg-white">
       <div className="max-w-4xl w-full z-10 flex flex-col gap-10">
-        <div className="text-center mb-6">
-          <h1 className="text-[28px] font-bold text-slate-900 mb-3 tracking-tight">
-            New Deployment
+        <div className="text-center max-w-2xl mx-auto">
+          <h1 className="text-[28px] font-[500] text-slate-900 mb-3 tracking-tight">
+            MetaCall Deployment
           </h1>
           <p className="text-slate-500">Choose how you want to deploy your function</p>
         </div>
@@ -48,8 +60,8 @@ export default function DeployHubPage() {
         <div className="grid md:grid-cols-2 gap-8 max-w-200 mx-auto w-full">
           {/* Deploy Repository */}
           <button
-            onClick={() => navigate('/deployments/new/repository')}
-            className="text-left group relative flex items-center justify-between sm:block bg-white border border-blue-400 sm:border-gray-900 p-4 sm:p-8 transition-all duration-300 hover:border-blue-500 shadow-sm hover:shadow-md"
+            onClick={() => navigate('/deployments/new/repository', { state: { plan } })}
+            className="text-left group relative flex items-center justify-between sm:block bg-white border border-gray-400 sm:border-gray-300 p-4 sm:p-8 transition-all duration-300 hover:border-blue-500 shadow-sm hover:shadow-md"
           >
             {/* Mobile left-aligned content */}
             <div className="flex items-center gap-3 sm:hidden">
@@ -61,9 +73,9 @@ export default function DeployHubPage() {
             </div>
 
             {/* Desktop absolute arrow */}
-            <div className="hidden sm:block absolute top-10 right-8 p-0 opacity-20 group-hover:opacity-100 transition-opacity">
+            <div className="hidden sm:block absolute top-10 right-8 p-0 opacity-80 group-hover:opacity-100 transition-opacity">
               <ArrowRight
-                className="text-blue-500 group-hover:text-blue-500 transition-colors"
+                className="text-gray-500 group-hover:text-blue-500 transition-colors"
                 size={28}
                 strokeWidth={1.5}
               />
@@ -72,7 +84,7 @@ export default function DeployHubPage() {
             {/* Desktop full content */}
             <div className="hidden sm:flex flex-col h-full justify-between">
               <div>
-                <div className="w-12 h-12 mb-6 flex items-center justify-center bg-gray-50/50 border border-gray-100 transition-colors">
+                <div className="w-12 h-12 mb-6 flex items-center justify-center bg-gray-50/50 border border-gray-50 transition-colors">
                   <FolderSync
                     className="text-slate-700 group-hover:text-blue-500"
                     size={24}
@@ -94,7 +106,7 @@ export default function DeployHubPage() {
 
           {/* Deploy Zip */}
           <label
-            className="cursor-pointer text-left group relative flex items-center justify-between sm:block bg-white border border-blue-400 border-dashed sm:border-gray-900 sm:border-dashed p-4 sm:p-8 transition-all duration-300 hover:border-blue-500 shadow-sm hover:shadow-md"
+            className="cursor-pointer text-left group relative flex items-center justify-between sm:block bg-white border border-gray-500 border-dashed sm:border-gray-400 sm:border-dashed p-4 sm:p-8 transition-all duration-300 hover:border-blue-500 shadow-sm hover:shadow-md"
             onDrop={handleDrop}
             onDragOver={handleDragOver}
           >
@@ -120,9 +132,9 @@ export default function DeployHubPage() {
             </div>
 
             {/* Desktop absolute arrow */}
-            <div className="hidden sm:block absolute top-10 right-8 p-0 opacity-20 group-hover:opacity-100 transition-opacity">
+            <div className="hidden sm:block absolute top-10 right-8 p-0 opacity-80 group-hover:opacity-100 transition-opacity">
               <UploadCloud
-                className="text-blue-500 group-hover:text-blue-500 transition-colors"
+                className="text-gray-500 group-hover:text-blue-500 transition-colors"
                 size={28}
                 strokeWidth={1.5}
               />
@@ -131,7 +143,7 @@ export default function DeployHubPage() {
             {/* Desktop full content */}
             <div className="hidden sm:flex flex-col h-full justify-between">
               <div>
-                <div className="w-12 h-12 mb-6 flex items-center justify-center bg-gray-50/50 border border-gray-100 transition-colors">
+                <div className="w-12 h-12 mb-6 flex items-center justify-center bg-gray-50/50 border border-gray-50 transition-colors">
                   <FolderArchive
                     className="text-slate-700 group-hover:text-blue-500"
                     size={24}
@@ -141,7 +153,7 @@ export default function DeployHubPage() {
                 <h2 className="text-lg font-bold text-slate-900 mb-2 transition-colors">
                   Deploy Zip
                 </h2>
-                <p className="text-slate-500 text-sm leading-relaxed max-w-70">
+                <p className="text-slate-500 text-[14px] leading-relaxed max-w-70">
                   Upload a zip file containing your function code and configuration manually.
                 </p>
               </div>
@@ -155,7 +167,7 @@ export default function DeployHubPage() {
 
         {/* Help */}
         <div className="text-center">
-          <p className="text-xs text-slate-400">
+          <p className="text-[14px] lg:text-[14px]  text-slate-400">
             Need help? Check out our{' '}
             <a
               className="text-slate-500 font-medium hover:underline hover:text-blue-500 transition-colors"

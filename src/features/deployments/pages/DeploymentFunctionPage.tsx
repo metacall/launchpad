@@ -5,11 +5,12 @@ import axios from 'axios';
 import { api } from '@/lib/api-client';
 import { env } from '@/app/config/env';
 import type { Deployment } from '@/shared/types';
-import { Spinner } from '@/shared/ui/Spinner';
+import { SkeletonLoader } from '@/shared/ui/LoadingState';
 import { LanguageBadge } from '@/shared/ui/LanguageBadge';
 import { FunctionTester } from '@/features/deployments/components/FunctionTester';
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
+import { getPlanLabel, resolveDeploymentPlan } from '@/shared/lib/plan';
 
 // Helper components
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -43,7 +44,6 @@ export default function DeploymentDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
-
   const fetchDeployment = useCallback(async () => {
     if (!suffix) return;
     setLoading(true);
@@ -84,14 +84,7 @@ export default function DeploymentDetailPage() {
 
   // Loading
   if (loading) {
-    return (
-      <div className="grow flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
-          <Spinner size={28} />
-          <p className="text-sm font-medium">Loading deployment…</p>
-        </div>
-      </div>
-    );
+    return <DeploymentDetailSkeleton />;
   }
 
   // Error or not found
@@ -99,7 +92,7 @@ export default function DeploymentDetailPage() {
     const isNetwork = Boolean(error?.toLowerCase().includes('unable to reach'));
     return (
       <div className="grow flex items-center justify-center p-6">
-        <div className="bg-white border border-slate-200 shadow-sm p-8 max-w-md w-full text-center flex flex-col items-center gap-4">
+        <div className="bg-white  max-w-md w-full text-center flex flex-col items-center gap-4">
           <div className="p-3 bg-red-50 rounded-full">
             <Box size={22} className="text-red-400" />
           </div>
@@ -113,7 +106,7 @@ export default function DeploymentDetailPage() {
             onClick={() => navigate('/')}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white text-sm font-semibold hover:bg-slate-700 transition-colors"
           >
-            <ArrowLeft size={14} /> Back to Hub
+            <ArrowLeft size={14} /> Back to Dashboard
           </button>
         </div>
       </div>
@@ -123,6 +116,12 @@ export default function DeploymentDetailPage() {
   const langs = Object.keys(deployment.packages ?? {}).filter(k => k !== 'Unknown');
   const baseUrl = env.FAAS_URL;
   const invokePath = `${baseUrl}/${deployment.prefix}/${deployment.suffix}/${deployment.version}/call`;
+  const deploymentPlan = getPlanLabel(
+    resolveDeploymentPlan({
+      suffix: deployment.suffix,
+      plan: (deployment as unknown as Record<string, unknown>).plan as string | undefined,
+    }),
+  );
   const totalFns = Object.values(deployment.packages ?? {}).reduce(
     (acc, handles) => acc + handles.reduce((a, h) => a + (h.scope?.funcs?.length ?? 0), 0),
     0,
@@ -170,10 +169,12 @@ export default function DeploymentDetailPage() {
                   </h1>
                   {/* <StatusBadge status={deployment.status === 'fail' ? 'error' : deployment.status ?? 'create'} /> */}
                 </div>
-                <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-400 font-medium">
+                <div className="hidden sm:flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-400 font-medium">
                   <span className="font-mono">{deployment.prefix}</span>
                   <span className="text-slate-200">·</span>
                   <span className="font-mono">{deployment.version}</span>
+                  <span className="text-slate-200">·</span>
+                  <span className="font-semibold text-slate-500">{deploymentPlan}</span>
                   {langs.length > 0 && (
                     <>
                       <span className="text-slate-200">·</span>
@@ -229,6 +230,7 @@ export default function DeploymentDetailPage() {
               {[
                 { label: 'Functions', value: totalFns, icon: <Layers size={13} /> },
                 { label: 'Packages', value: Object.keys(deployment.packages ?? {}).length, icon: <Box size={13} /> },
+                { label: 'Plan', value: deploymentPlan, icon: <Server size={13} /> },
               ].map(item => (
                 <div key={item.label} className="flex flex-col gap-1 bg-gray-50 border-slate-200 rounded-lg px-3 py-2.5">
                   <div className="flex items-center gap-1.5 text-slate-400">
@@ -240,8 +242,8 @@ export default function DeploymentDetailPage() {
               ))}
             </div>
 
-            {/* Endpoints */}
-            <div className="flex flex-col gap-3">
+            {/* Endpoints (hidden on small screens to reduce clutter) */}
+            <div className="hidden md:flex flex-col gap-3">
               <SectionTitle icon={<Globe size={13} />} title="Endpoints" />
               <InfoRow label="Base HTTP URL">
                 <div className="flex items-center gap-1.5">
@@ -256,7 +258,7 @@ export default function DeploymentDetailPage() {
             </div>
 
             {/* Packages / Files */}
-            <div className="flex flex-col gap-3">
+            <div className="hidden md:flex flex-col gap-3">
               <SectionTitle icon={<Box size={13} />} title="Packages" />
               {Object.entries(deployment.packages ?? {}).length === 0 ? (
                  <div className="p-3 bg-slate-100/50 rounded border border-slate-200">
@@ -283,7 +285,7 @@ export default function DeploymentDetailPage() {
             </div>
 
             {/* Configuration */}
-            <div className="flex flex-col gap-3">
+            <div className="hidden md:flex flex-col gap-3">
               <SectionTitle icon={<Server size={13} />} title="Configuration" />
 
               {(deployment.ports || []).length > 0 && (
@@ -321,5 +323,79 @@ export default function DeploymentDetailPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function DeploymentDetailSkeleton() {
+  return (
+    <div className="flex items-stretch justify-center h-[calc(100vh-80px)] p-4 sm:p-6">
+      <div className="w-full max-w-6xl flex flex-col bg-white border border-slate-200 shadow-sm overflow-hidden h-full">
+        <div className="pb-3">
+          <div className="h-[2px] w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-slate-200 animate-pulse" style={{ width: '35%' }} />
+          </div>
+        </div>
+
+        <div className="border-b border-slate-50 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full">
+            <span className="p-2 rounded-md border border-slate-100 bg-slate-50">
+              <SkeletonLoader skeletonLines={1} className="w-4" />
+            </span>
+            <div className="flex flex-col gap-2 w-full">
+              <SkeletonLoader skeletonLines={1} className="h-5 w-40" />
+              <SkeletonLoader skeletonLines={1} className="h-4 w-60" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <SkeletonLoader skeletonLines={1} className="h-8 w-20" />
+            <SkeletonLoader skeletonLines={1} className="h-8 w-24" />
+            <SkeletonLoader skeletonLines={1} className="h-8 w-24" />
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row flex-1 min-h-0">
+          <div className="w-full md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-5 flex flex-col gap-6 bg-slate-50/40 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2">
+              {[1, 2].map(i => (
+                <div key={i} className="flex flex-col gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2.5">
+                  <SkeletonLoader skeletonLines={1} className="h-3 w-16" />
+                  <SkeletonLoader skeletonLines={1} className="h-6 w-10" />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SkeletonLoader skeletonLines={1} className="h-3 w-20" />
+              <SkeletonLoader skeletonLines={2} className="h-3" />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SkeletonLoader skeletonLines={1} className="h-3 w-24" />
+              <div className="flex flex-col gap-2">
+                {[1, 2, 3].map(i => (
+                  <SkeletonLoader key={i} skeletonLines={1} className="h-9 w-full" />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <SkeletonLoader skeletonLines={1} className="h-3 w-24" />
+              <SkeletonLoader skeletonLines={2} className="h-3" />
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 bg-white p-5">
+            <div className="flex flex-col gap-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="border border-slate-100 rounded-lg p-4">
+                  <SkeletonLoader skeletonLines={1} className="h-4 w-36" />
+                  <SkeletonLoader skeletonLines={1} className="h-3 w-64 mt-2" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

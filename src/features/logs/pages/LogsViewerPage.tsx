@@ -4,7 +4,7 @@ import { ArrowLeft, RefreshCw, Terminal, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLogs } from '@/features/logs/hooks/useLogs';
 import type { Deployment } from '@/shared/types';
-import { Spinner } from '@/shared/ui/Spinner';
+import { PageLoading } from '@/shared/ui/LoadingState';
 import { LogsViewer } from '@/features/logs/components/LogsViewer';
 
 export default function LogsViewerPage() {
@@ -42,14 +42,7 @@ export default function LogsViewerPage() {
   const { logs, loading: loadingLogs, error: logsError, refetch } = useLogs(suffix ?? '', deployment?.prefix ?? '');
 
   if (loadingDep) {
-    return (
-      <div className="grow flex items-center justify-center min-h-[calc(100vh-80px)] bg-slate-50/50">
-        <div className="flex items-center gap-3 text-slate-500">
-          <Spinner size={24} />
-          <span className="text-sm font-medium">Loading deployment…</span>
-        </div>
-      </div>
-    );
+    return <PageLoading message="Loading deployment…" spinnerSize={24} />;
   }
 
   if (error || !deployment) {
@@ -64,7 +57,7 @@ export default function LogsViewerPage() {
             onClick={() => navigate('/deployments')}
             className="mt-4 px-6 py-2.5 bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 transition-all flex items-center gap-2"
           >
-            <ArrowLeft size={16} /> Back to Hub
+            <ArrowLeft size={16} /> Back to Deployments
           </button>
         </div>
       </div>
@@ -118,14 +111,14 @@ export default function LogsViewerPage() {
         {/* Logs area */}
         <div className="flex-1 relative overflow-hidden">
           {/* Loading overlay — only on initial load */}
-          {loadingLogs && logs.length === 0 ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/90 backdrop-blur-[2px] z-10">
-              <div className="flex items-center gap-3 px-6 py-3 bg-slate-900 border border-slate-700 font-mono text-sm text-slate-300 rounded">
-                <Spinner size={16} />
+          {loadingLogs && logs.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 border border-slate-700 rounded font-mono text-sm text-slate-200">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
                 <span>Fetching logs…</span>
               </div>
             </div>
-          ) : null}
+          )}
 
           <LogsViewer logs={logs} error={logsError} className="h-full max-h-full border-none" />
         </div>

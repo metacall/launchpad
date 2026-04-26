@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X } from 'lucide-react';
+import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X, Loader2, Code2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { Plans } from '@metacall/protocol/plan';
-import { Spinner } from '@/shared/ui/Spinner';
+import { SVGLoader } from '@/shared/ui/LoadingState';
 import JSZip from 'jszip';
 import type { TreeNode } from './TreeNodeView';
 import { TreeNodeView } from './TreeNodeView';
 import { TreeCheckbox } from './TreeCheckbox';
 import { EditorView } from './EditorView';
 import { type McConfig, buildJson } from './metacallConfig';
+import {
+  getPlanLabel,
+  normalizePlan,
+  readStoredPlan,
+  toDeployPlan,
+  writeDeploymentPlan,
+  writeStoredPlan,
+} from '@/shared/lib/plan';
 
 interface EnvRow {
   id: number;
@@ -45,10 +52,13 @@ function buildTree(paths: string[]): TreeNode {
 export default function DeployWizardPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
 
   // State from previous page
   const file = location.state?.file as File | undefined;
-  const plan = location.state?.plan as Plans | undefined;
+  const plan = normalizePlan(
+    (location.state?.plan as string | undefined) ?? searchParams.get('plan') ?? readStoredPlan(),
+  );
 
   // Local State
   const [deploying, setDeploying] = useState(false);
@@ -60,6 +70,11 @@ export default function DeployWizardPage() {
   const [envRows, setEnvRows] = useState<EnvRow[]>([{ id: 1, name: '', value: '' }]);
   const [mcConfigs, setMcConfigs] = useState<McConfig[]>([]);
   const [hiddenValues, setHiddenValues] = useState<Set<number>>(new Set());
+  const [envExpanded, setEnvExpanded] = useState(false);
+
+  useEffect(() => {
+    writeStoredPlan(plan);
+  }, [plan]);
 
   // Parse Zip
   useEffect(() => {
@@ -175,15 +190,9 @@ export default function DeployWizardPage() {
         .filter(r => r.name.trim())
         .map(r => ({ name: r.name.trim(), value: r.value }));
 
-      const deployment = await api.deploy(deployName, envVars, plan || Plans.Essential, 'Package');
-      navigate('/', {
-        state: {
-          pendingDeployment: {
-            suffix: deployment.suffix,
-            startedAt: new Date().toISOString(),
-          },
-        },
-      });
+      const deployment = await api.deploy(deployName, envVars, toDeployPlan(plan), 'Package');
+      writeDeploymentPlan(deployment.suffix, plan);
+      navigate(`/deployments/${deployment.suffix}`, { replace: true });
     } catch (error) {
       console.error('Deploy failed', error);
       const err = error as { response?: { data?: string }; message?: string };
@@ -195,30 +204,13 @@ export default function DeployWizardPage() {
 
   const nextEnvId = envRows.length > 0 ? Math.max(...envRows.map(r => r.id)) + 1 : 1;
   const selectedFilesArray = Array.from(selectedPaths);
-
   if (!file) {
-    return (
-      <div className="grow flex flex-col items-center justify-center p-4 bg-slate-50/50">
-        <div className="flex flex-col items-center gap-2 text-center max-w-sm bg-white p-8 border border-gray-200 rounded-md">
-          <h2 className="text-xl font-bold text-slate-800 tracking-tight">
-            No Deployment File Found
-          </h2>
-          <p className="text-sm text-slate-500 mb-4 mt-1">
-            You must select a file from the Deploy Hub before configuring a deployment.
-          </p>
-          <button
-            onClick={() => navigate('/deployments/new')}
-            className="w-full px-6 py-2.5 text-gray-600 border border-gray-300 text-sm font-medium rounded hover:text-white hover:bg-gray-700 transition-colors shadow-sm"
-          >
-            Go to Deploy Hub
-          </button>
-        </div>
-      </div>
-    );
+    setDeployError('No deployment file found. Please select a file from the Deploy.');
+    return null;
   }
 
   return (
-    <div className="grow flex flex-col items-center justify-start p-4 sm:p-6 pt-8 sm:pt-12 relative overflow-hidden animate-in fade-in duration-500 bg-white">
+    <div className="grow flex flex-col items-center justify-start p-4 sm:p-6 relative overflow-hidden animate-in fade-in duration-500 bg-white">
       <div className="w-full max-w-5xl bg-white border border-gray-200 shadow-sm flex flex-col z-10 transition-all rounded-sm">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 bg-gray-50/30">
@@ -244,7 +236,7 @@ export default function DeployWizardPage() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1 bg-gray-100 text-gray-600">
-              Plan: <span className="text-[--color-primary]">{plan}</span>
+              Plan: <span className="text-[--color-primary]">{getPlanLabel(plan)}</span>
             </span>
           </div>
         </div>
@@ -265,7 +257,8 @@ export default function DeployWizardPage() {
             <div className="grow overflow-y-auto max-h-75 lg:max-h-none pr-2 custom-scrollbar bg-gray-50/50 border border-gray-200 rounded-md p-2 sm:p-3">
               {loadingZip ? (
                 <div className="flex flex-col items-center gap-3 text-sm text-gray-500 py-10 justify-center h-full">
-                  <Spinner size={24} /> Parsing ZIP payload...
+                  <SVGLoader variant="minimal" size={40} />
+                  <span>Parsing ZIP payload…</span>
                 </div>
               ) : tree ? (
                 <div className="flex flex-col gap-1">
@@ -345,95 +338,113 @@ export default function DeployWizardPage() {
                 />
               </div>
 
-              {/* Environment Variables */}
-              <div className="flex flex-col mt-4">
-                <div className="flex items-center justify-between mb-3 mt-4">
-                  <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+              <div className="mt-4 bg-white border border-slate-200 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setEnvExpanded(!envExpanded)}
+                  className="w-full px-4 py-2 border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-between"
+                >
+                  <h3 className="text-sm lg:text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <Code2 size={16} className="text-blue-600" strokeWidth={1.5} />
                     Environment Variables
                   </h3>
-                  <button
-                    onClick={() => setEnvRows([...envRows, { id: nextEnvId, name: '', value: '' }])}
-                    className="text-[12px] font-semibold text-blue-600 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-50 cursor-pointer rounded-md transition-colors border border-blue-100"
-                  >
-                    <Plus size={13} strokeWidth={2.5} /> Add Variable
-                  </button>
-                </div>
-
-                <div className="flex flex-col">
-                  {/* Column headers */}
-                  <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
-                    <span className="flex-1 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Key</span>
-                    <span className="flex-1 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Value</span>
-                    <span className="w-12 shrink-0" />
-                  </div>
-
-                  {/* Rows */}
-                  <div className="flex flex-col max-h-40 overflow-y-auto custom-scrollbar">
-                    {envRows.length === 0 && (
-                      <div className="py-4 text-[12px] text-slate-400 italic text-center">
-                        No variables defined
-                      </div>
-                    )}
-                    {envRows.map((row, rowIdx) => (
-                      <div
-                        key={row.id}
-                        className="group flex items-center gap-3 py-2 border-b border-slate-100"
+                  <div className="flex items-center gap-2">
+                    {envExpanded && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setEnvRows([...envRows, { id: nextEnvId, name: '', value: '' }]);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Add environment variable"
                       >
-                        {/* Key input */}
-                        <input
-                          placeholder="VARIABLE_NAME"
-                          value={row.name}
-                          onChange={e => {
-                            const newRow = [...envRows];
-                            newRow[rowIdx].name = e.target.value.toUpperCase().replace(/\s+/g, '_');
-                            setEnvRows(newRow);
-                          }}
-                          className="flex-1 text-[12px] text-slate-700 bg-transparent border-none outline-none placeholder:text-slate-300 caret-slate-500 font-mono"
-                        />
-
-                        {/* Value input */}
-                        <input
-                          placeholder="value"
-                          value={row.value}
-                          type={hiddenValues.has(row.id) ? 'password' : 'text'}
-                          onChange={e => {
-                            const newRow = [...envRows];
-                            newRow[rowIdx].value = e.target.value;
-                            setEnvRows(newRow);
-                          }}
-                          className="flex-1 text-[12px] text-slate-700 bg-transparent border-none outline-none placeholder:text-slate-300 caret-slate-500 font-mono"
-                        />
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-0.5 shrink-0 w-12 justify-end">
-                          <button
-                            onClick={() =>
-                              setHiddenValues(prev => {
-                                const next = new Set(prev);
-                                if (next.has(row.id)) { next.delete(row.id); } else { next.add(row.id); }
-                                return next;
-                              })
-                            }
-                            className={`p-1 text-slate-400 hover:text-slate-600 transition-all ${hiddenValues.has(row.id)
-                                ? 'opacity-100'
-                                : 'opacity-0 group-hover:opacity-100'
-                              }`}
-                            title={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
-                          >
-                            {hiddenValues.has(row.id) ? <EyeOff size={12} /> : <Eye size={12} />}
-                          </button>
-                          <button
-                            onClick={() => setEnvRows(envRows.filter(r => r.id !== row.id))}
-                            className="p-1 text-slate-400 hover:text-slate-700 transition-all opacity-0 group-hover:opacity-100 text-base leading-none"
-                            title="Remove Variable"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        <Plus size={14} strokeWidth={2.5} />
+                        <span className="hidden sm:inline">Add Var</span>
+                      </button>
+                    )}
+                    <ChevronDown
+                      size={18}
+                      className={`text-slate-400 transition-transform duration-200 ${envExpanded ? 'rotate-180' : ''}`}
+                      strokeWidth={1.5}
+                    />
                   </div>
-                </div>
+                </button>
+
+                {envExpanded && (
+                  <div className="px-6 py-4 border-t border-slate-100 animate-in fade-in duration-200">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-3 pb-2 border-b border-slate-200">
+                        <span className="flex-1 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Key</span>
+                        <span className="flex-1 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Value</span>
+                        <span className="w-12 shrink-0" />
+                      </div>
+
+                      <div className="flex flex-col max-h-40 overflow-y-auto custom-scrollbar">
+                        {envRows.length === 0 && (
+                          <div className="py-4 text-[12px] text-slate-400 italic text-center">
+                            No variables defined
+                          </div>
+                        )}
+                        {envRows.map((row, rowIdx) => (
+                          <div
+                            key={row.id}
+                            className="group flex items-center gap-3 py-2 border-b border-slate-100"
+                          >
+                            <input
+                              placeholder="CLIENT KEY..."
+                              value={row.name}
+                              onChange={e => {
+                                const newRow = [...envRows];
+                                newRow[rowIdx].name = e.target.value.toUpperCase().replace(/\s+/g, '_');
+                                setEnvRows(newRow);
+                              }}
+                              className="flex-1 text-[12px] text-slate-700 bg-transparent border-none outline-none placeholder:text-gray-400/70 caret-slate-500 font-mono"
+                            />
+
+                            <input
+                              placeholder="VALUE"
+                              value={row.value}
+                              type={hiddenValues.has(row.id) ? 'password' : 'text'}
+                              onChange={e => {
+                                const newRow = [...envRows];
+                                newRow[rowIdx].value = e.target.value;
+                                setEnvRows(newRow);
+                              }}
+                              className="flex-1 text-[12px] text-slate-700 bg-transparent border-none outline-none placeholder:text-gray-400/70 caret-slate-500 font-mono"
+                            />
+
+                            <div className="flex items-center gap-1 shrink-0 w-16 justify-end">
+                              <button
+                                onClick={() =>
+                                  setHiddenValues(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(row.id)) { next.delete(row.id); } else { next.add(row.id); }
+                                    return next;
+                                  })
+                                }
+                                className={`flex items-center justify-center w-7 h-7 rounded-md border border-transparent text-slate-400 hover:text-slate-700 hover:bg-slate-100 hover:border-slate-200 transition-all ${hiddenValues.has(row.id)
+                                    ? 'opacity-100'
+                                    : 'opacity-0 group-hover:opacity-100'
+                                  }`}
+                                title={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
+                                aria-label={hiddenValues.has(row.id) ? 'Show value' : 'Hide value'}
+                              >
+                                {hiddenValues.has(row.id) ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                              <button
+                                onClick={() => setEnvRows(envRows.filter(r => r.id !== row.id))}
+                                className="flex items-center justify-center w-7 h-7 rounded-md border border-transparent text-slate-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition-all opacity-0 group-hover:opacity-100"
+                                title="Remove Variable"
+                                aria-label="Remove variable"
+                              >
+                                <X size={13} strokeWidth={2.2} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -462,7 +473,7 @@ export default function DeployWizardPage() {
                 disabled={deploying}
                 className="w-full sm:w-auto px-6 sm:px-8 py-2.5 text-[15px] font-bold text-gray-600 hover:text-white bg-white border border-gray-300 rounded-md hover:bg-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {deploying ? <Spinner size={16} /> : null}
+                {deploying ? <Loader2 size={16} className="animate-spin" /> : null}
                 Deploy
               </button>
             </div>
