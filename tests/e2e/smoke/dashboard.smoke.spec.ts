@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { DashboardPage } from '../../playwright/pages/dashboard.page';
+import { DashboardPage } from '../../pages/dashboard.page';
 
 // Smoke tests for dashboard
 // Validates dashboard loads and displays expected structure

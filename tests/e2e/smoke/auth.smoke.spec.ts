@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { LoginPage } from '../../playwright/pages/login.page';
+import { LoginPage } from '../../pages/login.page';
 
 // Smoke tests for authentication
 // Validates login page loads and auth redirects work correctly

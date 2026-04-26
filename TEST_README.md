@@ -32,19 +32,23 @@ src/tests/                    # Unit tests (Vitest)
 └── setup.ts
 
 tests/                        # E2E tests (Playwright)
-├── smoke/
-│   ├── auth.smoke.spec.ts    # 4 auth tests
-│   └── dashboard.smoke.spec.ts # 5 dashboard tests
-├── auth/                     # Phase 2
-├── deployments/              # Phase 3
-└── logs/                     # Phase 3
-
-playwright/
-├── pages/                    # Page Objects
-│   ├── login.page.ts
+├── e2e/
+│   ├── smoke/
+│   │   ├── auth.smoke.spec.ts      # 4 auth tests
+│   │   └── dashboard.smoke.spec.ts # 5 dashboard tests
+│   ├── auth/                        # Phase 2
+│   ├── deployments/                 # Phase 3
+│   └── logs/                        # Phase 3
+├── pages/
+│   ├── login.page.ts                # Page Objects
 │   └── dashboard.page.ts
-├── fixtures/auth.fixture.ts  # Test setup
-└── utils/helpers.ts          # 6 utilities
+├── fixtures/
+│   └── auth.fixture.ts              # Test setup
+├── utils/
+│   └── helpers.ts                   # 6 utilities
+├── mocks/                           # mock data + handlers
+├── storage/                         # auth/session state
+└── global/                          # global setup/teardown hooks
 ```
 
 ## Unit Tests (Vitest)

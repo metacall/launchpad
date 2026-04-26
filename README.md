@@ -46,8 +46,14 @@ Dashboard/
 │   ├── lib/                # API utilities
 │   ├── shared/             # layout, UI, types, constants, errors
 │   └── tests/              # unit tests
-├── playwright/             # fixtures, page objects, helpers
-├── tests/                  # Playwright smoke tests
+├── tests/                  # Playwright E2E + shared testing modules
+│   ├── e2e/                # test specs (auth, deployments, logs, smoke)
+│   ├── pages/              # page objects
+│   ├── fixtures/           # shared fixtures
+│   ├── utils/              # test utilities
+│   ├── mocks/              # API mocks and mock data
+│   ├── storage/            # storage state files
+│   └── global/             # global setup/teardown
 ├── public/                 # static files
 └── TEST_README.md          # extra testing notes
 ```
@@ -119,7 +125,7 @@ npm run test:smoke
 - `npm run test:smoke` runs the Playwright smoke tests
 - `npm run test` runs the full Playwright suite
 
-Playwright uses its own local dev server on port `4173`.
+Playwright uses its own local dev server on port `5173`.
 
 ## Notes
 

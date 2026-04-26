@@ -20,7 +20,7 @@
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
     "test:headed": "playwright test --headed",
-    "test:smoke": "playwright test tests/smoke",
+    "test:smoke": "playwright test tests/e2e/smoke",
     "test:codegen": "playwright codegen"
   },
   "dependencies": {
