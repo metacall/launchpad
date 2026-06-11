@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RefreshCw, ArrowLeft, Trash2, Box, ScrollText, Globe, Server, Layers } from 'lucide-react';
-import axios from 'axios';
-import { api } from '@/lib/api-client';
+import { api, isApiError } from '@/lib/api-client';
 import { env } from '@/app/config/env';
 import type { Deployment } from '@/shared/types';
 import { SkeletonLoader } from '@/shared/ui/LoadingState';
@@ -52,11 +51,11 @@ export default function DeploymentDetailPage() {
       const data = await api.inspectByName(suffix);
       setDeployment(data);
     } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
+      if (isApiError(err)) {
         setError(
-          !err.response
+          err.status === 0 || !err.status
             ? 'Unable to reach FaaS server. Check backend status and CORS settings.'
-            : (err.response.data?.error ?? err.message ?? 'Failed to load deployment.'),
+            : ((err.data as { error?: string } | null)?.error ?? err.message ?? 'Failed to load deployment.'),
         );
       } else {
         setError((err as Error).message || 'Failed to load deployment.');

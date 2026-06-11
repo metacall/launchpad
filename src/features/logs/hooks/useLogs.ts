@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
 import type { LogEntry } from '@/shared/types';
-import { api } from '@/lib/api-client';
+import { api, isAbortError, isApiError } from '@/lib/api-client';
 
 interface UseLogsResult {
   logs: LogEntry[];
@@ -117,12 +116,12 @@ export function useLogs(suffix: string, prefix: string, pollIntervalMs = 5000): 
         setLogs(parseLogs(raw));
         scheduleNext(false);
       } catch (err) {
-        if (axios.isCancel(err)) return;
+        if (isAbortError(err)) return;
         if (controller.signal.aborted) return;
         // Surface error to the caller and widen retry interval
-        const msg = axios.isAxiosError(err)
-          ? (err.response?.data?.error ?? err.message ?? 'Failed to load logs.')
-          : (err instanceof Error ? err.message : 'Failed to load logs.');
+        const msg = isApiError(err) || err instanceof Error
+          ? (err.message ?? 'Failed to load logs.')
+          : 'Failed to load logs.';
         setError(msg);
         scheduleNext(true);
       } finally {
