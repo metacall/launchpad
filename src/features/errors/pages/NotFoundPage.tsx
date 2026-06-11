@@ -9,7 +9,7 @@ export default function NotFoundPage() {
       <div className="w-full max-w-3xl flex flex-col items-center gap-8">
         <div className="flex items-center gap-2 text-slate-900 font-semibold text-lg">
           <img src="/logo.svg" alt="MetaCall Hub logo" className="h-14 w-14 object-contain" />
-          <span className=' text-xl font-[600]' >MetaCall Dashboard</span>
+          <span className=' text-xl font-[600]' >MetaCall Launchpad</span>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
