@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import type { Deployment } from '@/shared/types';
-import { api } from '@/lib/api-client';
+import { api, isAbortError } from '@/lib/api-client';
 
 interface UseDeploymentsResult {
   deployments: Deployment[];
@@ -27,7 +26,7 @@ export function useDeployments(pollIntervalMs = 30_000): UseDeploymentsResult {
         setError(null);
       } catch (err) {
         // Intentional abort — do not update state
-        if (axios.isCancel(err)) return;
+        if (isAbortError(err)) return;
         if (controller.signal.aborted) return;
         setError(
           (err instanceof Error ? err.message : null) ?? 'Failed to fetch deployments',
