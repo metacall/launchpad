@@ -57,6 +57,26 @@ if (typeof window !== 'undefined') {
         // Ignore
       }
     }
+    if (res.ok && urlStr.includes('/api/deploy/logs')) {
+      try {
+        const cloned = res.clone();
+        await cloned.json();
+      } catch (jsonErr) {
+        try {
+          const text = await res.text();
+          const jsonString = JSON.stringify(text);
+          return new Response(jsonString, {
+            status: res.status,
+            statusText: res.statusText,
+            headers: new Headers({
+              'Content-Type': 'application/json'
+            })
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
     return res;
   };
 }
@@ -204,7 +224,8 @@ export const api = {
   ): Promise<string> => {
     try {
       const logType = type === 'job' ? LogType.Job : LogType.Deploy;
-      return await getProtocol().logs('', logType, suffix, prefix);
+      const container = type === 'deploy' ? 'deploy' : '';
+      return await getProtocol().logs(container, logType, suffix, prefix);
     } catch (err) {
       mapError(err);
     }
