@@ -5,7 +5,7 @@ import { api } from '@/lib/api-client';
 import type { Deployment } from '@/shared/types';
 import { AlertTriangle, Plus, RefreshCw, X } from 'lucide-react';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
-import { InlineLoading, LoadingOverlay } from '@/shared/ui/LoadingState';
+
 import { DeploymentTable } from '@/features/deployments/components/DeploymentTable';
 import {
   FREE_PLAN,
@@ -274,11 +274,6 @@ export default function DashboardPage() {
       )}
 
       <div className="flex flex-col gap-8">
-        {/* Loading */}
-        {loading && (
-          <InlineLoading message="Fetching deployments…" spinnerSize={14} />
-        )}
-
         {error && (
           <div className="flex items-center gap-3 text-xs text-red-600 animate-in fade-in slide-in-from-top-1 duration-300">
             <button
@@ -296,56 +291,53 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Launchpad grid always shows all plan slots */}
-        {!loading && (
-          <div className="flex flex-col gap-3">
-            <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
-              Launchpads
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              <NewDeployCard />
-              {launchpadSlots.map(({ planId, dep }) =>
-                dep ? (
-                  <LaunchpadCard
-                    key={planId}
-                    dep={dep}
-                    onDeploy={() => {
-                      writeStoredPlan(planId);
-                      navigate('/deployments/new', { state: { plan: planId } });
-                    }}
-                  />
-                ) : (
-                  <EmptyLaunchpadCard
-                    key={planId}
-                    plan={planId}
-                    isAlreadyUsed={deployments.some(
-                      d =>
-                        normalizePlan(
-                          (d as unknown as Record<string, unknown>).plan as string | undefined,
-                        ) === planId,
-                    )}
-                    onClick={() => {
-                      writeStoredPlan(planId);
-                      navigate(deployments.length > 0 ? '/deployments/new' : '/plans', {
-                        state: { plan: planId },
-                      });
-                    }}
-                  />
-                ),
-              )}
-            </div>
+        {/* ── Launchpad grid — renders instantly from static plan structure ── */}
+        <div className="flex flex-col gap-3">
+          <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
+            Launchpads
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <NewDeployCard />
+            {launchpadSlots.map(({ planId, dep }) =>
+              dep ? (
+                <LaunchpadCard
+                  key={planId}
+                  dep={dep}
+                  onDeploy={() => {
+                    writeStoredPlan(planId);
+                    navigate('/deployments/new', { state: { plan: planId } });
+                  }}
+                />
+              ) : (
+                <EmptyLaunchpadCard
+                  key={planId}
+                  plan={planId}
+                  isAlreadyUsed={deployments.some(
+                    d =>
+                      normalizePlan(
+                        (d as unknown as Record<string, unknown>).plan as string | undefined,
+                      ) === planId,
+                  )}
+                  onClick={() => {
+                    writeStoredPlan(planId);
+                    navigate(deployments.length > 0 ? '/deployments/new' : '/plans', {
+                      state: { plan: planId },
+                    });
+                  }}
+                />
+              ),
+            )}
           </div>
-        )}
+        </div>
 
-        {visibleDeployments.length > 0 && (
+
+        {/* Deployments section */}
+        {(loading || visibleDeployments.length > 0) && (
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
-                  Deployments
-                </h2>
-              </div>
-
+              <h2 className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">
+                Deployments
+              </h2>
               <button
                 className="flex items-center justify-center p-2.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 transition-all"
                 onClick={refetch}
@@ -355,18 +347,40 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="bg-white border border-gray-200 w-full relative">
-              {loading && visibleDeployments.length > 0 && (
-                <LoadingOverlay message="Syncing network…" spinnerSize={16} />
+            <div className="bg-white border border-gray-200 w-full relative overflow-hidden">
+              {loading ? (
+                /* Skeleton table rows */
+                <div className="w-full">
+                  <div className="border-b border-gray-200 bg-gray-50 grid grid-cols-[2fr_1fr_1fr_2fr_80px] gap-4 py-3 px-4">
+                    {['Name', 'Language', 'Status', 'Endpoint', ''].map(h => (
+                      <span key={h} className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                  {[1, 2, 3].map(i => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[2fr_1fr_1fr_2fr_80px] gap-4 px-4 py-3.5 border-b border-gray-100 animate-pulse"
+                    >
+                      <div className="h-3.5 bg-gray-100 rounded w-3/4" />
+                      <div className="h-3.5 bg-gray-100 rounded w-1/2" />
+                      <div className="h-3.5 bg-gray-100 rounded w-2/3" />
+                      <div className="h-3.5 bg-gray-100 rounded w-4/5" />
+                      <div className="h-3.5 bg-gray-100 rounded w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <DeploymentTable
+                  deployments={visibleDeployments}
+                  loadingStartedAtBySuffix={loadingStartedAtBySuffix}
+                  onDelete={suffix => {
+                    const dep = deployments.find(d => d.suffix === suffix);
+                    if (dep) setPending(dep);
+                  }}
+                />
               )}
-              <DeploymentTable
-                deployments={visibleDeployments}
-                loadingStartedAtBySuffix={loadingStartedAtBySuffix}
-                onDelete={suffix => {
-                  const dep = deployments.find(d => d.suffix === suffix);
-                  if (dep) setPending(dep);
-                }}
-              />
             </div>
           </div>
         )}
