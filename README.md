@@ -42,7 +42,6 @@ It already covers the main developer flow: sign in, inspect deployments, deploy 
 - Vite
 - Tailwind CSS v4
 - React Router
-- Axios
 - JSZip
 - Vitest
 - Playwright

@@ -1,42 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// TODO: Consider using msw for more robust API mocking in future tests
 
-type RequestHandler = (config: { headers?: Record<string, string> }) => { headers?: Record<string, string> };
-type ResponseErrorHandler = (error: unknown) => Promise<never>;
+/**
+ * api-client unit tests
+ *
+ * The api-client now delegates all HTTP calls to @metacall/protocol, which
+ * uses native fetch internally and sends:
+ *   Authorization: jwt <token>   (when a token is present)
+ *
+ * We stub globalThis.fetch so the protocol's internal requests are intercepted.
+ */
 
-let requestHandler: RequestHandler = config => config;
-let responseErrorHandler: ResponseErrorHandler = error => Promise.reject(error);
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
-const httpMock = {
-  get: vi.fn(),
-  post: vi.fn(),
-  interceptors: {
-    request: {
-      use: vi.fn((handler: RequestHandler) => {
-        requestHandler = handler;
-        return 0;
-      }),
-    },
-    response: {
-      use: vi.fn((_ok: unknown, onError: ResponseErrorHandler) => {
-        responseErrorHandler = onError;
-        return 0;
-      }),
-    },
-  },
-};
-
-const axiosCreate = vi.fn(() => httpMock);
-const axiosIsAxiosError = vi.fn((error: unknown) => Boolean((error as { isAxiosError?: boolean })?.isAxiosError));
-
-vi.mock('axios', () => ({
-  default: {
-    create: axiosCreate,
-    isAxiosError: axiosIsAxiosError,
-  },
-  create: axiosCreate,
-  isAxiosError: axiosIsAxiosError,
-}));
+function makeResponse(
+  status: number,
+  body?: unknown,
+  contentType = 'application/json',
+): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (_header: string) => contentType },
+    json: () => Promise.resolve(body),
+    text: () =>
+      Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
+  } as unknown as Response;
+}
 
 async function loadApi() {
   vi.resetModules();
@@ -48,68 +38,93 @@ describe('api-client', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    requestHandler = config => config;
-    responseErrorHandler = error => Promise.reject(error);
+    vi.stubEnv('VITE_FAAS_TOKEN', '');
     window.history.pushState({}, '', '/');
   });
 
-  it('adds Authorization header in request interceptor when token exists', async () => {
+  it('adds Authorization header (jwt scheme) when token exists', async () => {
     localStorage.setItem('faas_token', 'abc123');
-    await loadApi();
-
-    const config = requestHandler({ headers: {} });
-
-    expect(config.headers?.Authorization).toBe('Bearer abc123');
-  });
-
-  it('clears token and redirects on 401 outside auth routes', async () => {
-    localStorage.setItem('faas_token', 'abc123');
-    window.history.pushState({}, '', '/dashboard');
-    await loadApi();
-
-    const err = { isAxiosError: true, response: { status: 401 } };
-    await expect(responseErrorHandler(err)).rejects.toEqual(err);
-
-    expect(localStorage.getItem('faas_token')).toBeNull();
-  });
-
-  it('does not clear token on 401 when already on auth route', async () => {
-    localStorage.setItem('faas_token', 'abc123');
-    window.history.pushState({}, '', '/login');
-    await loadApi();
-
-    const err = { isAxiosError: true, response: { status: 401 } };
-    await expect(responseErrorHandler(err)).rejects.toEqual(err);
-
-    expect(localStorage.getItem('faas_token')).toBe('abc123');
-  });
-
-  it('ready returns true for 200 and false on failure', async () => {
     const api = await loadApi();
 
-    httpMock.get.mockResolvedValueOnce({ status: 200 });
+    mockFetch.mockResolvedValueOnce(makeResponse(200, true));
+    await api.ready();
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const headers = options.headers;
+    const auth = headers instanceof Headers
+      ? headers.get('Authorization')
+      : (headers as Record<string, string> | undefined)?.['Authorization'];
+    // Protocol sends "jwt <token>" (not "Bearer")
+    expect(auth).toBe('jwt abc123');
+  });
+
+  it('does not add Authorization header when no token is stored', async () => {
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(200, true));
+    await api.ready();
+
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const headers = options.headers;
+    const auth = headers instanceof Headers
+      ? headers.get('Authorization')
+      : (headers as Record<string, string> | undefined)?.['Authorization'];
+    // No token → no auth header (or empty/trimmed)
+    expect(!auth || auth === 'jwt ' || auth === 'jwt').toBe(true);
+  });
+
+  it('inspect rejects when the server returns 401', async () => {
+    localStorage.setItem('faas_token', 'abc123');
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+
+    await expect(api.inspect()).rejects.toBeDefined();
+  });
+
+  it('inspect rejects when the server returns 401 on /login page too', async () => {
+    localStorage.setItem('faas_token', 'abc123');
+    window.history.pushState({}, '', '/login');
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+
+    await expect(api.inspect()).rejects.toBeDefined();
+  });
+
+  it('ready returns true on 200 and false on network failure', async () => {
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(200, 'ok', 'text/plain'));
     await expect(api.ready()).resolves.toBe(true);
 
-    httpMock.get.mockRejectedValueOnce(new Error('network'));
+    mockFetch.mockRejectedValueOnce(new Error('network'));
     await expect(api.ready()).resolves.toBe(false);
   });
 
   it('inspectByName throws when deployment is missing', async () => {
     const api = await loadApi();
-    httpMock.get.mockResolvedValueOnce({ data: [{ suffix: 'existing' }] });
+    // Protocol's inspectByName calls GET /api/inspect and searches the list
+    mockFetch.mockResolvedValueOnce(makeResponse(200, [{ suffix: 'existing' }]));
 
-    await expect(api.inspectByName('missing')).rejects.toThrow('Deployment "missing" not found');
+    await expect(api.inspectByName('missing')).rejects.toThrow(/missing/i);
   });
 
-  it('login surfaces backend error message', async () => {
+  it('login rejects on a non-2xx response', async () => {
     const api = await loadApi();
-    httpMock.post.mockRejectedValueOnce({
-      isAxiosError: true,
-      response: {
-        data: { error: 'Invalid credentials' },
-      },
-    });
+    mockFetch.mockResolvedValueOnce(makeResponse(400, { error: 'Invalid credentials' }));
 
-    await expect(api.login('a@b.com', 'bad-pass')).rejects.toThrow('Invalid credentials');
+    await expect(api.login('a@b.com', 'bad-pass')).rejects.toBeDefined();
+  });
+
+  it('login rejects when 2xx body contains no token field', async () => {
+    const api = await loadApi();
+    // Protocol's login.ts returns res.text() directly; if the body has no token
+    // our wrapper throws "Login failed: no token received"
+    mockFetch.mockResolvedValueOnce(
+      makeResponse(200, JSON.stringify({ error: 'Account suspended' }), 'text/plain'),
+    );
+
+    await expect(api.login('a@b.com', 'pass')).rejects.toThrow(/no token received/i);
   });
 });

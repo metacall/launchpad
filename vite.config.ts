@@ -8,14 +8,36 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      'events': resolve(__dirname, './src/lib/polyfills/events.ts'),
+      'path': resolve(__dirname, './src/lib/polyfills/path.ts'),
+      'stream': resolve(__dirname, './src/lib/polyfills/stream.ts'),
+      'url': resolve(__dirname, './src/lib/polyfills/url.ts'),
+      'jsonwebtoken': resolve(__dirname, './src/lib/polyfills/jsonwebtoken.ts'),
     },
   },
   server: {
     port: 5173,
     proxy: {
+      // All /api/* routes → production MetaCall (keeps /api prefix, no rewrite)
       '/api': {
-        target: 'http://localhost:9000',
+        target: 'https://dashboard.metacall.io',
         changeOrigin: true,
+        secure: true,
+      },
+      '/login': {
+        target: 'https://dashboard.metacall.io',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/signup': {
+        target: 'https://dashboard.metacall.io',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/validate': {
+        target: 'https://dashboard.metacall.io',
+        changeOrigin: true,
+        secure: true,
       },
     },
   },

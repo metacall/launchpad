@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   X,
@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
-  AlertCircle,
+  FolderGit2,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { Spinner } from '@/shared/ui/Spinner';
@@ -24,6 +24,8 @@ import {
   writeDeploymentPlan,
   writeStoredPlan,
 } from '@/shared/lib/plan';
+import { DeploymentProgressCard } from '@/features/deployments/components/DeploymentProgressCard';
+import { useDeploymentMonitor } from '@/features/deployments/hooks/useDeploymentMonitor';
 
 interface EnvRow {
   id: number;
@@ -50,6 +52,9 @@ export default function DeployRepositoryPage() {
   const [deployError, setDeployError] = useState('');
   const [envExpanded, setEnvExpanded] = useState(false);
   const [detectedLanguages, setDetectedLanguages] = useState<string>('');
+  const [deployTarget, setDeployTarget] = useState<{ suffix: string; startedAt: string } | null>(null);
+  // submittingLabel is set immediately on click so the progress screen renders before the API call
+  const [submittingLabel, setSubmittingLabel] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -58,15 +63,14 @@ export default function DeployRepositoryPage() {
 
   // Strict plan validation - redirect if no plan
   useEffect(() => {
-    if (!plan || plan === '') {
+    if (!plan) {
       navigate('/plans', { replace: true });
     }
   }, [plan, navigate]);
 
   const handleDeploy = async () => {
     // Check if plan is selected
-    if (!plan || plan === '') {
-      // Redirect to plan selection page
+    if (!plan) {
       navigate('/plans', { replace: true });
       return;
     }
@@ -76,8 +80,15 @@ export default function DeployRepositoryPage() {
       return;
     }
 
+    // Derive a display label from the URL immediately (no API needed)
+    const urlLabel = repositoryUrl.trim().replace(/\.git$/, '').split('/').filter(Boolean).pop() ?? 'repository';
+    const startedAt = new Date().toISOString();
+
+    // Show progress screen IMMEDIATELY, before any API calls
+    setSubmittingLabel(urlLabel);
     setDeploying(true);
     setDeployError('');
+
     try {
       const branchToDeploy = branchName.trim() || 'main';
       const { id } = await api.add(repositoryUrl.trim(), branchToDeploy);
@@ -88,14 +99,33 @@ export default function DeployRepositoryPage() {
 
       const deployment = await api.deploy(id, envVars, toDeployPlan(plan), 'Repository');
       writeDeploymentPlan(deployment.suffix, plan);
-      navigate(`/deployments/${deployment.suffix}`, { replace: true });
+      // Switch to the real monitor target
+      setDeployTarget({ suffix: deployment.suffix, startedAt });
     } catch (err: unknown) {
       const error = err as { response?: { data?: string }; message?: string };
       setDeployError(error?.response?.data ?? error?.message ?? 'Failed to deploy repository.');
+      setDeployTarget(null);
+      setSubmittingLabel(null);
     } finally {
       setDeploying(false);
     }
   };
+
+  const handleDeployReady = useCallback((deployment: { suffix: string }) => {
+    navigate(`/deployments/${deployment.suffix}`, { replace: true });
+  }, [navigate]);
+
+  const handleDeployFailed = useCallback((message: string) => {
+    setDeployError(message);
+    setDeployTarget(null);
+  }, []);
+
+  // Must be called unconditionally (React rules of hooks)
+  const { status: deployStatus } = useDeploymentMonitor({
+    target: deployTarget,
+    onReady: handleDeployReady,
+    onFailed: handleDeployFailed,
+  });
 
   // Parse owner/repo from GitHub or GitLab URL
   function parseRepoInfo(url: string): { provider: 'github' | 'gitlab'; owner: string; repo: string } | null {
@@ -222,6 +252,26 @@ export default function DeployRepositoryPage() {
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [repositoryUrl]);
+
+  // Show deployment progress screen immediately on click (submittingLabel) or while monitoring (deployTarget)
+  if (submittingLabel || deployTarget) {
+    const displaySuffix = deployTarget?.suffix ?? submittingLabel ?? 'deploying';
+    const displayStartedAt = deployTarget?.startedAt ?? new Date().toISOString();
+    // While we're still submitting (no deployTarget yet), status stays 'create'
+    const displayStatus = deployTarget ? deployStatus : 'create';
+
+    return (
+      <div className="grow flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 bg-white">
+        <DeploymentProgressCard
+          suffix={displaySuffix}
+          status={displayStatus}
+          startedAt={displayStartedAt}
+          sourceLabel="Repository"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="grow flex flex-col items-center justify-start p-4 sm:p-8 pt-6 animate-in fade-in duration-500">
       <div className="w-full max-w-4xl flex flex-col gap-6">
@@ -237,7 +287,7 @@ export default function DeployRepositoryPage() {
           </button>
           <div className="flex items-center gap-3 flex-1">
             <div className="w-9 h-9 flex items-center justify-center bg-white">
-              <FolderSync size={18} className="text-gray-500" strokeWidth={1.5} />
+              <FolderGit2 size={18} className="text-gray-500" strokeWidth={1.5} />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-none">

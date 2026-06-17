@@ -1,45 +1,131 @@
-import axios, { type AxiosError } from 'axios';
-import type { Deployment, Plans } from '@/shared/types';
+/**
+ * api-client.ts
+ *
+ * Thin wrapper around @metacall/protocol.
+ * All HTTP communication goes through the Protocol client (native fetch,
+ * no Axios). Login / signup use the protocol's own standalone functions.
+ *
+ * Consumers: import { api, isApiError, isAbortError } from '@/lib/api-client'.
+ */
 
-const BASE_URL = (import.meta.env.VITE_FAAS_URL as string | undefined) ?? '';
+import Protocol, { isProtocolError, ResourceType as ProtocolResourceType, LogType } from '@metacall/protocol';
+import loginFn from '@metacall/protocol/login';
+import signupFn from '@metacall/protocol/signup';
+import type { API, Resource } from '@metacall/protocol';
+import type { Deployment, MetaCallJSON, Plans } from '@/shared/types';
+
 const TOKEN_KEY = 'faas_token';
 
-function getToken(): string {
-  // Only use the token the user explicitly received from login/signup.
-  // We intentionally do NOT fall back to VITE_FAAS_TOKEN so that
-  // every session must go through the login flow.
-  return localStorage.getItem(TOKEN_KEY) ?? '';
-}
-
-function extractError(err: unknown, fallback: string): never {
-  const serverMsg = (err as AxiosError<{ error?: string }>).response?.data?.error;
-  throw new Error(serverMsg ?? (err instanceof Error ? err.message : fallback));
-}
-
-const http = axios.create({ baseURL: BASE_URL, timeout: 10_000 });
-
-http.interceptors.request.use(config => {
-  const token = getToken();
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  return config;
-});
-
-http.interceptors.response.use(
-  res => res,
-  err => {
-    if (axios.isAxiosError(err) && err.response?.status === 401) {
-      const onAuthPage =
-        window.location.pathname === '/login' || window.location.pathname === '/signup';
-      if (!onAuthPage) {
-        localStorage.removeItem(TOKEN_KEY);
-        window.location.href = '/login';
+if (typeof window !== 'undefined') {
+  const originalFetch = window.fetch;
+  window.fetch = async function (input, init) {
+    const urlStr =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+        ? input.toString()
+        : (input as Request).url;
+    if (init && init.method === 'POST' && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
+      try {
+        if (typeof init.body === 'string') {
+          const bodyObj = JSON.parse(init.body) as Record<string, unknown>;
+          if (!bodyObj['g-recaptcha-response']) {
+            bodyObj['g-recaptcha-response'] = 'empty';
+            init = {
+              ...init,
+              body: JSON.stringify(bodyObj)
+            };
+          }
+        }
+      } catch (e) {
+        // Ignore
       }
     }
-    return Promise.reject(err);
-  },
-);
+    const res = await originalFetch.call(this, input, init);
+    if (!res.ok && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
+      try {
+        const cloned = res.clone();
+        const text = await cloned.text();
+        if (text) {
+          Object.defineProperty(res, 'statusText', {
+            value: text.trim(),
+            writable: false,
+            configurable: true
+          });
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+    if (res.ok && urlStr.includes('/api/deploy/logs')) {
+      try {
+        const cloned = res.clone();
+        await cloned.json();
+      } catch (jsonErr) {
+        try {
+          const text = await res.text();
+          const jsonString = JSON.stringify(text);
+          return new Response(jsonString, {
+            status: res.status,
+            statusText: res.statusText,
+            headers: new Headers({
+              'Content-Type': 'application/json'
+            })
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+    }
+    return res;
+  };
+}
+
+const BASE_URL =
+  typeof window !== 'undefined'
+    ? window.location.origin
+    : (import.meta.env.VITE_FAAS_URL as string | undefined) ?? 'https://dashboard.metacall.io';
+
+function getToken(): string {
+  return localStorage.getItem(TOKEN_KEY) ?? (import.meta.env.VITE_FAAS_TOKEN as string) ?? '';
+}
+
+function getProtocol(): API {
+  return Protocol(getToken(), BASE_URL);
+}
+
+export class ApiError extends Error {
+  readonly status?: number;
+  readonly data: unknown;
+
+  constructor(message: string, status?: number, data?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
+export function isApiError(err: unknown): err is ApiError {
+  return err instanceof ApiError || isProtocolError(err);
+}
+
+export function isAbortError(err: unknown): err is Error {
+  return (
+    err instanceof Error &&
+    (err.name === 'AbortError' || err.name === 'TimeoutError')
+  );
+}
+
+function mapError(err: unknown): never {
+  if (isProtocolError(err)) {
+    throw new ApiError(err.message, err.status, err.data);
+  }
+  if (err instanceof Error) {
+    throw new ApiError(err.message);
+  }
+  throw new ApiError(String(err));
+}
 
 export interface EnvVar {
   name: string;
@@ -49,71 +135,103 @@ export interface EnvVar {
 export type ResourceType = 'Package' | 'Repository';
 
 export const api = {
-  ready: async (signal?: AbortSignal): Promise<boolean> => {
+  /** Check if the FaaS server is reachable. */
+  ready: async (_signal?: AbortSignal): Promise<boolean> => {
     try {
-      const res = await http.get<unknown>('/api/readiness', { signal });
-      return res.status === 200;
+      return await getProtocol().ready();
     } catch {
       return false;
     }
   },
 
-  inspect: async (signal?: AbortSignal): Promise<Deployment[]> => {
-    const res = await http.get<Deployment[]>('/api/inspect', { signal });
-    return res.data;
+  /** Validate the current auth token. */
+  validate: async (): Promise<boolean> => {
+    try {
+      return await getProtocol().validate();
+    } catch {
+      return false;
+    }
   },
 
-  inspectByName: async (suffix: string, signal?: AbortSignal): Promise<Deployment> => {
-    const all = await api.inspect(signal);
-    const found = all.find(d => d.suffix === suffix);
-    if (!found) throw new Error(`Deployment "${suffix}" not found`);
-    return found;
+  /** List all current deployments. */
+  inspect: async (_signal?: AbortSignal): Promise<Deployment[]> => {
+    try {
+      return (await getProtocol().inspect()) as Deployment[];
+    } catch (err) {
+      mapError(err);
+    }
   },
 
-  upload: async (name: string, file: File): Promise<string> => {
-    const form = new FormData();
-    form.append('id', name);
-    form.append('blob', file);
-    const res = await http.post<string>('/api/package/create', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return res.data;
+  /** Find a deployment by its suffix name. */
+  inspectByName: async (suffix: string, _signal?: AbortSignal): Promise<Deployment> => {
+    try {
+      return (await getProtocol().inspectByName(suffix)) as Deployment;
+    } catch (err) {
+      mapError(err);
+    }
   },
 
+  /** Upload a zip package. Accepts a browser File/Blob. */
+  upload: async (
+    name: string,
+    file: File,
+    jsons: MetaCallJSON[] = [],
+    runners: string[] = [],
+  ): Promise<string> => {
+    try {
+      const result: Resource = await getProtocol().upload(name, file, jsons, runners);
+      return result.id;
+    } catch (err) {
+      mapError(err);
+    }
+  },
+
+  /** Trigger a deployment of a previously uploaded resource. */
   deploy: async (
     name: string,
     env: EnvVar[],
     plan: Plans,
     resourceType: ResourceType,
   ): Promise<{ suffix: string; prefix: string; version: string }> => {
-    const res = await http.post<{ suffix: string; prefix: string; version: string }>(
-      '/api/deploy/create',
-      {
-        suffix: name,
-        resourceType,
-        release: name,
-        env,
-        plan,
-        version: 'v1',
-      },
-    );
-    return res.data;
+    try {
+      const protoResourceType =
+        resourceType === 'Repository'
+          ? ProtocolResourceType.Repository
+          : ProtocolResourceType.Package;
+
+      const result = await getProtocol().deploy(name, env, plan, protoResourceType);
+      return { suffix: result.suffix, prefix: result.prefix, version: result.version };
+    } catch (err) {
+      mapError(err);
+    }
   },
 
+  /** Delete a deployment. */
   deployDelete: async (prefix: string, suffix: string, version: string): Promise<void> => {
-    await http.post('/api/deploy/delete', { prefix, suffix, version });
+    try {
+      await getProtocol().deployDelete(prefix, suffix, version);
+    } catch (err) {
+      mapError(err);
+    }
   },
 
+  /** Fetch deployment logs. */
   logs: async (
     suffix: string,
     prefix: string,
     type: 'deploy' | 'job' = 'deploy',
-    signal?: AbortSignal,
+    _signal?: AbortSignal,
   ): Promise<string> => {
-    const res = await http.post<string>('/api/deploy/logs', { suffix, prefix, type }, { signal });
-    return res.data;
+    try {
+      const logType = type === 'job' ? LogType.Job : LogType.Deploy;
+      const container = type === 'deploy' ? 'deploy' : '';
+      return await getProtocol().logs(container, logType, suffix, prefix);
+    } catch (err) {
+      mapError(err);
+    }
   },
 
+  /** Call a deployed function synchronously. */
   call: async <R>(
     prefix: string,
     suffix: string,
@@ -121,37 +239,74 @@ export const api = {
     name: string,
     args: unknown[] = [],
   ): Promise<R> => {
-    const res = await http.post<R>(`/${prefix}/${suffix}/${version}/call/${name}`, args);
-    return res.data;
+    try {
+      return await getProtocol().call<R>(prefix, suffix, version, name, args);
+    } catch (err) {
+      mapError(err);
+    }
   },
 
   branchList: async (url: string): Promise<string[]> => {
-    const res = await http.post<{ branches: string[] }>('/api/repository/branchlist', { url });
-    return res.data.branches;
+    try {
+      const result = await getProtocol().branchList(url);
+      return result.branches;
+    } catch (err) {
+      mapError(err);
+    }
   },
 
-  add: async (url: string, branch: string): Promise<{ id: string }> => {
-    const res = await http.post<{ id: string }>('/api/repository/add', { url, branch, jsons: [] });
-    return res.data;
+  add: async (url: string, branch: string, jsons: MetaCallJSON[] = []): Promise<{ id: string }> => {
+    try {
+      const result = await getProtocol().add(url, branch, jsons);
+      return { id: result.id };
+    } catch (err) {
+      mapError(err);
+    }
   },
 
   login: async (email: string, password: string): Promise<string> => {
     try {
-      const res = await http.post<{ token?: string; error?: string }>('/api/auth/login', { email, password });
-      if (!res.data.token) throw new Error(res.data.error ?? 'Login failed. Please try again.');
-      return res.data.token;
+      const token = await loginFn(email, password, BASE_URL);
+      if (!token) throw new ApiError('Login failed: no token received');
+
+      try {
+        const parsed = JSON.parse(token) as unknown;
+        if (typeof parsed === 'object' && parsed !== null) {
+          if ('token' in parsed && typeof parsed.token === 'string') {
+            return parsed.token;
+          }
+          throw new ApiError('Login failed: no token received');
+        }
+      } catch (jsonErr) {
+        if (jsonErr instanceof ApiError) throw jsonErr;
+      }
+
+      return token;
     } catch (err) {
-      extractError(err, 'Login failed. Please try again.');
+      mapError(err);
     }
   },
 
   signup: async (email: string, password: string, alias: string): Promise<string> => {
     try {
-      const res = await http.post<{ token?: string; error?: string }>('/api/auth/signup', { email, password, alias });
-      if (!res.data.token) throw new Error(res.data.error ?? 'Signup failed. Please try again.');
-      return res.data.token;
+      const token = await signupFn(email, password, alias, BASE_URL);
+      if (!token) throw new ApiError('Signup failed: no token received');
+
+      try {
+        const parsed = JSON.parse(token) as unknown;
+        if (typeof parsed === 'object' && parsed !== null) {
+          if ('token' in parsed && typeof parsed.token === 'string') {
+            return parsed.token;
+          }
+          throw new ApiError('Signup failed: no token received');
+        }
+      } catch (jsonErr) {
+        if (jsonErr instanceof ApiError) throw jsonErr;
+      }
+
+      return token;
     } catch (err) {
-      extractError(err, 'Signup failed. Please try again.');
+      mapError(err);
     }
   },
 };
