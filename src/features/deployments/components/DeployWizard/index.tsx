@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Folder, ChevronDown, ChevronRight, Plus, Eye, EyeOff, AlertTriangle, X, Loader2, Code2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
@@ -17,6 +17,8 @@ import {
   writeDeploymentPlan,
   writeStoredPlan,
 } from '@/shared/lib/plan';
+import { DeploymentProgressCard } from '@/features/deployments/components/DeploymentProgressCard';
+import { useDeploymentMonitor } from '@/features/deployments/hooks/useDeploymentMonitor';
 
 interface EnvRow {
   id: number;
@@ -63,6 +65,7 @@ export default function DeployWizardPage() {
   // Local State
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
+  const [deployTarget, setDeployTarget] = useState<{ suffix: string; startedAt: string } | null>(null);
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
   const [loadingZip, setLoadingZip] = useState(true);
@@ -160,15 +163,20 @@ export default function DeployWizardPage() {
 
   const handleDeploy = async () => {
     if (!file) return;
-    setDeploying(true);
     setDeployError('');
 
-    try {
-      const deployName = file.name
-        .replace(/\.zip$/, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, '-');
+    // Compute deploy name from filename — no API needed yet
+    const deployName = file.name
+      .replace(/\.zip$/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-');
 
+    // Show progress screen IMMEDIATELY, before any API calls
+    const startedAt = new Date().toISOString();
+    setDeployTarget({ suffix: deployName, startedAt });
+    setDeploying(true);
+
+    try {
       // Rebuild zip: only include user-selected files, then inject metacall-{i}.json configs
       const jszip = new JSZip();
       const originalZip = await new JSZip().loadAsync(file);
@@ -192,21 +200,53 @@ export default function DeployWizardPage() {
 
       const deployment = await api.deploy(deployName, envVars, toDeployPlan(plan), 'Package');
       writeDeploymentPlan(deployment.suffix, plan);
-      navigate(`/deployments/${deployment.suffix}`, { replace: true });
+      // Update with real suffix from server (in case it differs from local name)
+      setDeployTarget({ suffix: deployment.suffix, startedAt });
     } catch (error) {
       console.error('Deploy failed', error);
       const err = error as { response?: { data?: string }; message?: string };
       setDeployError(err?.response?.data || err?.message || 'Failed to deploy package.');
+      setDeployTarget(null);
     } finally {
       setDeploying(false);
     }
   };
+
+  const handleDeployReady = useCallback((deployment: { suffix: string }) => {
+    navigate(`/deployments/${deployment.suffix}`, { replace: true });
+  }, [navigate]);
+
+  const handleDeployFailed = useCallback((message: string) => {
+    setDeployError(message);
+    setDeployTarget(null);
+  }, []);
+
+  // Must be called before any early returns (React rules of hooks)
+  const { status: deployStatus } = useDeploymentMonitor({
+    target: deployTarget,
+    onReady: handleDeployReady,
+    onFailed: handleDeployFailed,
+  });
 
   const nextEnvId = envRows.length > 0 ? Math.max(...envRows.map(r => r.id)) + 1 : 1;
   const selectedFilesArray = Array.from(selectedPaths);
   if (!file) {
     setDeployError('No deployment file found. Please select a file from the Deploy.');
     return null;
+  }
+
+  // Show deployment progress screen while deploying
+  if (deployTarget) {
+    return (
+      <div className="grow flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 bg-white">
+        <DeploymentProgressCard
+          suffix={deployTarget.suffix}
+          status={deployStatus}
+          startedAt={deployTarget.startedAt}
+          sourceLabel="Package"
+        />
+      </div>
+    );
   }
 
   return (
