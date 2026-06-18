@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plans } from '@metacall/protocol/plan';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
+import { addMockSubscription } from '@/shared/lib/plan';
 
 export default function PlanPage() {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ export default function PlanPage() {
     price: string;
     color: string;
   } | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const plans = [
     {
@@ -57,6 +60,40 @@ export default function PlanPage() {
   const handleCloseCheckout = () => {
     setCheckoutPlan(null);
   };
+
+  const handleSubscribe = () => {
+    if (!checkoutPlan) return;
+    setSubscribing(true);
+    setTimeout(() => {
+      addMockSubscription(checkoutPlan.id);
+      setSubscribing(false);
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/settings');
+      }, 1500);
+    }, 1000);
+  };
+
+  if (success) {
+    return (
+      <div className="grow flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 bg-white">
+        <div className="w-full max-w-md border border-slate-200 bg-white p-8 text-center shadow-lg rounded-lg">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Subscription Activated!</h2>
+          <p className="text-sm text-slate-500 mb-4">
+            You have successfully subscribed to the <span className="font-semibold text-slate-800">{checkoutPlan?.name}</span>.
+          </p>
+          <p className="text-xs text-blue-600 font-medium animate-pulse">
+            Redirecting to Settings page...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grow flex flex-col items-center justify-start p-4 sm:p-10 sm:pt-1 animate-in fade-in duration-500 relative">
@@ -231,13 +268,14 @@ export default function PlanPage() {
             {/* Modal Footer */}
             <div className="px-6 py-4 flex flex-col items-end border-t border-slate-200 bg-slate-50">
               <button
-                onClick={handleCloseCheckout} // mock action
-                className="bg-blue-600 hover:bg-blue-700 font-bold text-white text-[13px] py-1.5 px-6 rounded transition-colors mb-2"
+                onClick={handleSubscribe}
+                disabled={subscribing}
+                className="bg-blue-600 hover:bg-blue-700 font-bold text-white text-[13px] py-1.5 px-6 rounded transition-colors mb-2 disabled:opacity-50"
               >
-                Subscribe
+                {subscribing ? 'Processing...' : 'Subscribe'}
               </button>
               <p className="text-[10px] text-slate-500 text-right w-full">
-                Your card will be immediately charged €.
+                Your card will be immediately charged €{checkoutPlan.price}.
               </p>
             </div>
           </div>
