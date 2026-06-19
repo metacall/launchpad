@@ -106,13 +106,13 @@ function NewDeployCard() {
 }
 
 // Launchpad card (active deployment)
-function LaunchpadCard({ dep, onDeploy }: { dep: Deployment; onDeploy: () => void }) {
+function LaunchpadCard({ dep }: { dep: Deployment }) {
   const navigate = useNavigate();
   const plan = resolveDeploymentPlan({
     suffix: dep.suffix,
     plan: (dep as unknown as Record<string, unknown>).plan as string | undefined,
   });
-  const { headerBg, plusHover } = getPlanClasses(plan);
+  const { headerBg } = getPlanClasses(plan);
   return (
     <div
       className="flex flex-col border border-dashed border-gray-300 bg-white hover:shadow-sm transition-all cursor-pointer"
@@ -124,34 +124,59 @@ function LaunchpadCard({ dep, onDeploy }: { dep: Deployment; onDeploy: () => voi
         <span className="truncate">{dep.suffix || 'Empty launchpad'}</span>
         <span className="opacity-80 ml-2 shrink-0">{getPlanLabel(plan)}</span>
       </div>
-      <DeployRow onClick={() => onDeploy()} plusHover={plusHover} />
+      <div className="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50 transition-colors">
+        <span className="text-smd font-medium text-slate-700">Manage Function</span>
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wide">
+          Active
+        </span>
+      </div>
     </div>
   );
 }
 
 // Empty plan slot
-function EmptyLaunchpadCard({ plan, onClick, isAlreadyUsed }: { plan: string; onClick: () => void; isAlreadyUsed?: boolean }) {
+function EmptyLaunchpadCard({
+  plan,
+  onClick,
+  isAlreadyUsed,
+  hasSubscription = true,
+}: {
+  plan: string;
+  onClick: () => void;
+  isAlreadyUsed?: boolean;
+  hasSubscription?: boolean;
+}) {
   const { headerBg, plusHover } = getPlanClasses(plan);
-  const bgClass = isAlreadyUsed ? 'bg-gray-300' : headerBg;
-  const hoverClass = isAlreadyUsed ? '' : plusHover;
+  const bgClass = !hasSubscription ? 'bg-gray-400' : (isAlreadyUsed ? 'bg-gray-300' : headerBg);
+  const hoverClass = !hasSubscription ? 'hover:bg-slate-700 hover:text-white hover:border-slate-700' : (isAlreadyUsed ? '' : plusHover);
 
   return (
     <div
-      className={`flex flex-col border border-dashed ${isAlreadyUsed ? 'border-gray-200' : 'border-gray-300'} bg-white ${!isAlreadyUsed ? 'hover:shadow-sm cursor-pointer' : 'opacity-60 cursor-not-allowed'} transition-all`}
-      onClick={!isAlreadyUsed ? onClick : undefined}
+      className={`flex flex-col border border-dashed ${
+        !hasSubscription ? 'border-gray-300' : (isAlreadyUsed ? 'border-gray-200' : 'border-gray-300')
+      } bg-white hover:shadow-sm cursor-pointer transition-all`}
+      onClick={onClick}
     >
       <div
         className={`flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white ${bgClass}`}
       >
-        <span>Empty launchpad</span>
-        <span className="opacity-80">{getPlanLabel(plan)}</span>
+        <span>{!hasSubscription ? 'Locked slot' : 'Empty launchpad'}</span>
+        <span className="opacity-80">
+          {!hasSubscription ? 'Inactive' : getPlanLabel(plan)}
+        </span>
       </div>
-      {!isAlreadyUsed && <DeployRow onClick={onClick} plusHover={hoverClass} />}
-      {isAlreadyUsed && (
-        <div className="flex items-center justify-between px-4 py-3.5 text-gray-400">
-          <span className="text-xs font-semibold">Already in use</span>
-        </div>
-      )}
+      <div
+        className="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50 transition-colors"
+      >
+        <span className="text-smd font-medium text-gray-500">
+          {!hasSubscription ? 'Activate Plan' : 'Deploy'}
+        </span>
+        <span
+          className={`inline-flex items-center justify-center w-8 h-7 border border-gray-300 text-gray-400 transition-all ${hoverClass}`}
+        >
+          +
+        </span>
+      </div>
     </div>
   );
 }
@@ -160,6 +185,28 @@ function EmptyLaunchpadCard({ plan, onClick, isAlreadyUsed }: { plan: string; on
 export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [subscriptions, setSubscriptions] = useState<Record<string, number>>({});
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    api.listSubscriptions()
+      .then(subs => {
+        if (active) {
+          setSubscriptions(subs || {});
+          setLoadingSubscriptions(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLoadingSubscriptions(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const [pendingDeployments, setPendingDeployments] = useState<PendingDeploymentEntry[]>(
     () => readPendingDeployments(),
   );
@@ -303,10 +350,6 @@ export default function DashboardPage() {
                 <LaunchpadCard
                   key={planId}
                   dep={dep}
-                  onDeploy={() => {
-                    writeStoredPlan(planId);
-                    navigate('/deployments/new', { state: { plan: planId } });
-                  }}
                 />
               ) : (
                 <EmptyLaunchpadCard
@@ -318,11 +361,14 @@ export default function DashboardPage() {
                         (d as unknown as Record<string, unknown>).plan as string | undefined,
                       ) === planId,
                   )}
+                  hasSubscription={true}
                   onClick={() => {
                     writeStoredPlan(planId);
-                    navigate(deployments.length > 0 ? '/deployments/new' : '/plans', {
-                      state: { plan: planId },
-                    });
+                    if (loadingSubscriptions || subscriptions[planId]) {
+                      navigate('/deployments/new', { state: { plan: planId } });
+                    } else {
+                      navigate('/plans', { state: { plan: planId } });
+                    }
                   }}
                 />
               ),
@@ -339,39 +385,16 @@ export default function DashboardPage() {
                 Deployments
               </h2>
               <button
-                className="flex items-center justify-center p-2.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 transition-all"
+                className="flex items-center justify-center p-2.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 transition-all animate-in fade-in"
                 onClick={refetch}
                 title="Refresh deployments"
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
               </button>
             </div>
 
-            <div className="bg-white border border-gray-200 w-full relative overflow-hidden">
-              {loading ? (
-                /* Skeleton table rows */
-                <div className="w-full">
-                  <div className="border-b border-gray-200 bg-gray-50 grid grid-cols-[2fr_1fr_1fr_2fr_80px] gap-4 py-3 px-4">
-                    {['Name', 'Language', 'Status', 'Endpoint', ''].map(h => (
-                      <span key={h} className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-                        {h}
-                      </span>
-                    ))}
-                  </div>
-                  {[1, 2, 3].map(i => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-[2fr_1fr_1fr_2fr_80px] gap-4 px-4 py-3.5 border-b border-gray-100 animate-pulse"
-                    >
-                      <div className="h-3.5 bg-gray-100 rounded w-3/4" />
-                      <div className="h-3.5 bg-gray-100 rounded w-1/2" />
-                      <div className="h-3.5 bg-gray-100 rounded w-2/3" />
-                      <div className="h-3.5 bg-gray-100 rounded w-4/5" />
-                      <div className="h-3.5 bg-gray-100 rounded w-full" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
+            <div className="bg-white border border-gray-200 relative overflow-hidden">
+              {visibleDeployments.length > 0 ? (
                 <DeploymentTable
                   deployments={visibleDeployments}
                   loadingStartedAtBySuffix={loadingStartedAtBySuffix}
@@ -380,6 +403,11 @@ export default function DashboardPage() {
                     if (dep) setPending(dep);
                   }}
                 />
+              ) : (
+                <div className="w-full py-10 px-4 flex items-center justify-center gap-2 text-slate-500 font-medium text-xs animate-in fade-in">
+                  <RefreshCw className="animate-spin text-slate-400" size={14} />
+                  Fetching deployments...
+                </div>
               )}
             </div>
           </div>
