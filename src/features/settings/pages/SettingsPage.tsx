@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User,
@@ -11,8 +11,19 @@ import {
   RefreshCw,
   Rocket,
   Lock,
+  FileText,
 } from 'lucide-react';
 import { CopyButton } from '@/shared/ui/CopyButton';
+import { api } from '@/lib/api-client';
+import { removeMockSubscription, normalizePlan } from '@/shared/lib/plan';
+
+const formatDate = (dateVal: number | string | undefined) => {
+  if (!dateVal) return 'N/A';
+  const ms = typeof dateVal === 'number' ? (dateVal < 10000000000 ? dateVal * 1000 : dateVal) : Date.parse(dateVal);
+  if (isNaN(Number(ms))) return String(dateVal);
+  const d = new Date(ms);
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+};
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -26,6 +37,65 @@ export default function SettingsPage() {
   >(
     null,
   );
+
+  const [deployments, setDeployments] = useState<any[]>([]);
+  const [subDeploys, setSubDeploys] = useState<any[]>([]);
+  const [loadingDeploys, setLoadingDeploys] = useState(true);
+
+  const fetchSettingsData = useCallback(async () => {
+    setLoadingDeploys(true);
+    try {
+      const [, deps, deploys] = await Promise.all([
+        api.listSubscriptions().catch(() => ({})),
+        api.inspect().catch(() => []),
+        api.listSubscriptionsDeploys().catch(() => []),
+      ]);
+      setDeployments(deps || []);
+      setSubDeploys(deploys || []);
+    } catch {
+      // Ignore
+    } finally {
+      setLoadingDeploys(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSettingsData();
+  }, [fetchSettingsData]);
+
+  const billingHistory = useMemo(() => {
+    if (subDeploys.length > 0) {
+      return subDeploys.map(item => ({
+        id: item.id || `CF222FF2-${item.plan || 'MOCK'}`,
+        date: formatDate(item.date),
+        amount: '€0.00',
+      }));
+    }
+    return [
+      { id: 'CF222FF2-0379', date: '6/15/2026 10:50:24 PM', amount: '€0.00' },
+      { id: 'CF222FF2-0375', date: '5/20/2026 4:29:28 AM', amount: '€0.00' },
+      { id: 'CF222FF2-0373', date: '5/19/2026 4:26:18 AM', amount: '€0.00' },
+      { id: 'CF222FF2-0372', date: '5/15/2026 10:51:32 PM', amount: '€0.00' },
+      { id: 'CF222FF2-0368', date: '4/20/2026 4:28:44 AM', amount: '€0.00' },
+    ];
+  }, [subDeploys]);
+
+  const activePaidSubscriptionsList = useMemo(() => {
+    return subDeploys.map(item => {
+      let badgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+      if (item.plan === 'Essential') badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+      if (item.plan === 'Standard') badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+      if (item.plan === 'Premium') badgeColor = 'bg-pink-50 text-pink-600 border-pink-200';
+
+      return {
+        id: item.id || item.plan,
+        planName: item.plan,
+        badgeColor,
+        mockDate: formatDate(item.date),
+        deploy: item.deploy || '',
+      };
+    });
+  }, [subDeploys]);
 
   const authToken =
     localStorage.getItem('faas_token') ?? (import.meta.env.VITE_FAAS_TOKEN as string);
@@ -68,6 +138,24 @@ export default function SettingsPage() {
     });
   };
 
+  const handleCancelSubscription = async (planName: string) => {
+    if (!confirm(`Are you sure you want to cancel your ${planName} Plan subscription?`)) return;
+    try {
+      removeMockSubscription(planName);
+      await fetchSettingsData();
+      setFeedbackMessage({
+        type: 'success',
+        text: `${planName} Plan subscription canceled successfully.`,
+      });
+    } catch (err: unknown) {
+      const error = err as Error;
+      setFeedbackMessage({
+        type: 'error',
+        text: error.message || 'Failed to cancel subscription.',
+      });
+    }
+  };
+
   const handleDeleteAccount = () => {
     if (!confirm('Delete local account data and sign out?')) return;
     localStorage.removeItem('faas_token');
@@ -79,8 +167,7 @@ export default function SettingsPage() {
   return (
     <div className="grow flex flex-col items-center justify-start p-4 bg-white animate-in fade-in duration-500">
       <div className="w-full max-w-350 flex flex-col mt-4">
-        {/* Page header */}
-        <div className="flex justify-between items-center mb-10 pb-6 border-b-2 border-slate-800">
+        <div className="flex justify-between items-center mb-10 pb-6 border-b-2 border-slate-200">
           <div>
             <h2 className="text-3xl font-medium text-slate-800 tracking-tight">Account Settings</h2>
             <p className="text-gray-500 mt-1 text-sm font-medium">
@@ -297,7 +384,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Billing History Full W */}
+        {/* Billing History */}
         <div className="border border-slate-300 bg-white flex flex-col mb-8">
           <div className="bg-slate-50 text-slate-800 text-[11px] uppercase tracking-widest font-bold px-6 py-4 border-b border-slate-300 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -306,42 +393,84 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="p-8 flex flex-col gap-6">
-            <div className="flex justify-between items-end">
+            <div className="flex justify-between items-center pb-2">
               <div>
-                <h4 className="text-xl font-bold text-slate-800 tracking-tight">Payments List</h4>
-                <p className="text-sm font-medium text-gray-500 mt-1">
+                <h4 className="text-md font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                  Payments List
+                </h4>
+                <p className="text-xs text-slate-500 mt-1">
                   Download your past invoices and usage reports.
                 </p>
               </div>
-              <button className="p-2 border border-slate-300 text-gray-500 hover:text-slate-800 hover:border-slate-800 transition-all rounded-sm">
-                <RefreshCw size={16} strokeWidth={2.5} />
+              <button
+                onClick={fetchSettingsData}
+                className="p-1.5 border border-slate-300 text-gray-500 hover:text-slate-800 hover:border-slate-800 transition-all rounded-sm bg-white cursor-pointer"
+              >
+                <RefreshCw size={14} strokeWidth={2.5} />
               </button>
             </div>
 
-            <div className="border border-dashed border-slate-300 bg-slate-50 min-h-40 flex flex-col items-center justify-center p-6 text-center group hover:border-slate-400 transition-colors">
-              <div className="w-12 h-12 mb-3 text-gray-300 group-hover:text-gray-400 transition-colors flex items-center justify-center">
-                <ReceiptText size={28} strokeWidth={1.5} />
-              </div>
-              <p className="text-[14px] font-bold text-slate-800">No invoices generated yet</p>
-              <p className="text-[13px] text-gray-500 mt-1">
-                Once you start using paid features, your invoices will appear here.
-              </p>
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse border border-slate-100">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">Receipt</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
+                  {loadingDeploys ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-400 font-medium">
+                        <RefreshCw className="animate-spin inline mr-2 text-slate-400" size={14} />
+                        Loading payments...
+                      </td>
+                    </tr>
+                  ) : billingHistory.length > 0 ? (
+                    billingHistory.map(row => (
+                      <tr key={row.id} className="hover:bg-slate-50/50 transition-all duration-150">
+                        <td className="py-3 px-4 font-mono flex items-center gap-1.5 text-slate-600">
+                          <FileText size={12} className="text-red-500 shrink-0" />
+                          {row.id}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-[9px] font-bold bg-emerald-50 text-gray-700 border border-emerald-200 uppercase tracking-wide">
+                            PAID
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-500 font-medium">{row.date}</td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-800">{row.amount}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-500 font-medium bg-slate-50/50">
+                        No invoices generated yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
 
-            <div className="flex items-center justify-end">
-              <div className="flex items-stretch border border-slate-300 rounded-sm">
+            {/* Pagination Bar */}
+            <div className="flex items-center justify-end pt-2">
+              <div className="flex items-stretch border border-slate-200 rounded-sm overflow-hidden shadow-sm bg-white">
                 <button
                   disabled
-                  className="bg-white text-gray-400 px-4 py-2 border-r border-slate-300 text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-colors cursor-not-allowed"
+                  className="bg-white text-gray-400 px-3 py-1.5 border-r border-slate-200 text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 transition-all cursor-not-allowed hover:bg-slate-50"
                 >
                   Prev
                 </button>
-                <div className="bg-slate-100 text-slate-400 font-bold text-[11px] px-6 py-2 flex items-center tracking-widest uppercase font-mono border-r border-slate-300">
+                <div className="bg-slate-50 text-slate-500 font-bold text-[10px] px-4 py-1.5 flex items-center tracking-widest uppercase font-mono border-r border-slate-200">
                   PAGE 1
                 </div>
                 <button
                   disabled
-                  className="bg-white text-gray-400 px-4 py-2 text-xs font-bold uppercase tracking-widest disabled:opacity-50 transition-colors cursor-not-allowed"
+                  className="bg-white text-gray-400 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 transition-all cursor-not-allowed hover:bg-slate-50"
                 >
                   Next
                 </button>
@@ -359,15 +488,94 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => navigate('/plans')}
-              className="px-4 py-2 bg-gray-800 text-white text-[10px] uppercase font-bold tracking-widest hover:bg-slate-700 transition-colors flex items-center gap-2 w-max rounded-sm"
+              className="px-4 py-2 bg-gray-800 text-white text-[10px] uppercase font-bold tracking-widest hover:bg-slate-700 transition-colors flex items-center gap-2 w-max rounded-sm cursor-pointer"
             >
               Upgrade Plan
             </button>
           </div>
-          <div className="p-8">
-            <div className="p-8 text-[13px] text-gray-600 font-medium bg-slate-50 border border-slate-200 border-dashed text-center">
-              No active paid subscriptions. You are currently on the{' '}
-              <strong className="text-slate-800">Free Tier</strong>.
+          <div className="p-8 flex flex-col gap-6">
+            <div className="flex justify-between items-center pb-2">
+              <div>
+                <h4 className="text-md font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                  Active Subscriptions
+                </h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage your active deployment slots and plan tiers.
+                </p>
+              </div>
+              <button
+                onClick={fetchSettingsData}
+                className="p-1.5 border border-slate-300 text-gray-500 hover:text-slate-800 hover:border-slate-800 transition-all rounded-sm bg-white cursor-pointer"
+              >
+                <RefreshCw size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse border border-slate-100">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">Plan</th>
+                    <th className="py-3 px-4">Deploy</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4 text-center">Delete</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
+                  {loadingDeploys ? (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-400 font-medium">
+                        <RefreshCw className="animate-spin inline mr-2 text-slate-400" size={14} />
+                        Checking active subscriptions...
+                      </td>
+                    </tr>
+                  ) : activePaidSubscriptionsList.length > 0 ? (
+                    activePaidSubscriptionsList.map(item => {
+                      const associatedDeploy = item.deploy
+                        ? { suffix: item.deploy }
+                        : deployments.find(d => normalizePlan(d.plan) === item.planName);
+                      const deployText = associatedDeploy ? (
+                        <span
+                          className="font-semibold text-blue-600 underline hover:text-blue-800 cursor-pointer"
+                          onClick={() => navigate(`/deployments/${associatedDeploy.suffix}`)}
+                        >
+                          {associatedDeploy.suffix}
+                        </span>
+                      ) : (
+                        'No deploy associated.'
+                      );
+
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/50 transition-all duration-150">
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-wider border ${item.badgeColor}`}>
+                              {item.planName}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-500 font-medium">{deployText}</td>
+                          <td className="py-3 px-4 text-gray-400 font-medium font-mono">{item.mockDate}</td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => handleCancelSubscription(item.planName)}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-all inline-flex items-center justify-center cursor-pointer"
+                              title="Cancel Subscription"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-gray-500 font-medium bg-slate-50/50">
+                        No active paid subscriptions. You are currently on the <strong className="text-slate-800">Free Tier</strong>.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

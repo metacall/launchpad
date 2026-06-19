@@ -83,3 +83,35 @@ export function resolveDeploymentPlan(
   if (fromMetadata) return fromMetadata;
   return normalizePlan(deployment?.plan);
 }
+
+export function readMockSubscriptions(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem('faas_mock_subscriptions');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function addMockSubscription(plan: string) {
+  if (typeof window === 'undefined') return;
+  const current = readMockSubscriptions();
+  current[plan] = (current[plan] || 0) + 1;
+  window.localStorage.setItem('faas_mock_subscriptions', JSON.stringify(current));
+}
+
+export function removeMockSubscription(plan: string) {
+  if (typeof window === 'undefined') return;
+  const current = readMockSubscriptions();
+  if (current[plan] > 0) {
+    current[plan] -= 1;
+    if (current[plan] === 0) {
+      delete current[plan];
+    }
+  }
+  window.localStorage.setItem('faas_mock_subscriptions', JSON.stringify(current));
+}
+

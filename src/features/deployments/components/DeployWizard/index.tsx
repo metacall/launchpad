@@ -75,6 +75,67 @@ export default function DeployWizardPage() {
   const [hiddenValues, setHiddenValues] = useState<Set<number>>(new Set());
   const [envExpanded, setEnvExpanded] = useState(false);
 
+  const [subscriptions, setSubscriptions] = useState<Record<string, number>>({});
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
+  const [deployments, setDeployments] = useState<any[]>([]);
+  const [loadingDeployments, setLoadingDeployments] = useState(true);
+  const [slotOccupied, setSlotOccupied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.listSubscriptions()
+      .then(subs => {
+        if (active) {
+          setSubscriptions(subs || {});
+          setLoadingSubscriptions(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLoadingSubscriptions(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.inspect()
+      .then(deps => {
+        if (active) {
+          setDeployments(deps || []);
+          setLoadingDeployments(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLoadingDeployments(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Strict plan and subscription validation
+  useEffect(() => {
+    if (loadingSubscriptions || loadingDeployments) return;
+    if (plan !== 'Free') {
+      if (!subscriptions[plan]) {
+        navigate('/plans', { replace: true });
+        return;
+      }
+      const activeCount = deployments.filter(
+        d => normalizePlan(d.plan) === plan
+      ).length;
+      if (activeCount >= (subscriptions[plan] || 0)) {
+        setSlotOccupied(true);
+      }
+    }
+  }, [plan, subscriptions, deployments, loadingSubscriptions, loadingDeployments, navigate]);
+
   useEffect(() => {
     writeStoredPlan(plan);
   }, [plan]);
@@ -233,6 +294,40 @@ export default function DeployWizardPage() {
   if (!file) {
     setDeployError('No deployment file found. Please select a file from the Deploy.');
     return null;
+  }
+
+  // Show slot occupied warning page
+  if (slotOccupied) {
+    return (
+      <div className="grow flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 bg-white">
+        <div className="w-full max-w-md border border-slate-200 bg-white p-8 text-center shadow-lg rounded-lg animate-in zoom-in-95 duration-200">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Launchpad Slot Occupied</h2>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+            You have already deployed an application using the <span className="font-semibold text-slate-800">{getPlanLabel(plan)}</span>.
+            To deploy another application, please delete the existing deployment first or purchase another slot.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-2 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider hover:bg-slate-700 transition-colors rounded-sm"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/plans')}
+              className="px-6 py-2 border border-slate-300 text-slate-700 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors rounded-sm"
+            >
+              Upgrade Plan
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Show deployment progress screen while deploying

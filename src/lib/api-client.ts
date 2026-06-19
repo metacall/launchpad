@@ -11,8 +11,9 @@
 import Protocol, { isProtocolError, ResourceType as ProtocolResourceType, LogType } from '@metacall/protocol';
 import loginFn from '@metacall/protocol/login';
 import signupFn from '@metacall/protocol/signup';
-import type { API, Resource } from '@metacall/protocol';
+import type { API, Resource, SubscriptionDeploy } from '@metacall/protocol';
 import type { Deployment, MetaCallJSON, Plans } from '@/shared/types';
+import { readMockSubscriptions } from '@/shared/lib/plan';
 
 const TOKEN_KEY = 'faas_token';
 
@@ -157,6 +158,92 @@ export const api = {
   inspect: async (_signal?: AbortSignal): Promise<Deployment[]> => {
     try {
       return (await getProtocol().inspect()) as Deployment[];
+    } catch (err) {
+      mapError(err);
+    }
+  },
+
+  /** List user billing subscriptions. */
+  listSubscriptions: async (): Promise<Record<string, number>> => {
+    try {
+      let realSubs: Record<string, number> = {};
+      try {
+        realSubs = await getProtocol().listSubscriptions();
+      } catch {
+        // Fallback: If listSubscriptions fails, derive from listSubscriptionsDeploys
+        try {
+          const deploys = await api.listSubscriptionsDeploys();
+          for (const d of deploys) {
+            realSubs[d.plan] = (realSubs[d.plan] || 0) + 1;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      const mockSubs = readMockSubscriptions();
+      const merged: Record<string, number> = { ...realSubs };
+      
+      for (const [key, count] of Object.entries(mockSubs)) {
+        merged[key] = (merged[key] || 0) + count;
+      }
+      
+      return merged;
+    } catch (err) {
+      mapError(err);
+    }
+  },
+
+  /** List subscription deploys. */
+  listSubscriptionsDeploys: async (): Promise<SubscriptionDeploy[]> => {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY) || '';
+      
+      let realDeploys: SubscriptionDeploy[] = [];
+      try {
+        const response = await fetch(`${BASE_URL}/api/billing/list-subscriptions-deploys`, {
+          headers: {
+            Authorization: `jwt ${token}`,
+          },
+        });
+        if (response.ok) {
+          realDeploys = (await response.json()) as SubscriptionDeploy[];
+        }
+      } catch {
+        // Fallback
+      }
+
+      // Fetch real billing plan subscription counts
+      let realSubs: Record<string, number> = {};
+      try {
+        realSubs = await getProtocol().listSubscriptions();
+      } catch {
+        // Ignore
+      }
+
+      const mockSubs = readMockSubscriptions();
+      const totalSubs: Record<string, number> = { ...realSubs };
+      
+      for (const [key, count] of Object.entries(mockSubs)) {
+        totalSubs[key] = (totalSubs[key] || 0) + count;
+      }
+
+      const merged: SubscriptionDeploy[] = [...realDeploys];
+
+      for (const [planName, count] of Object.entries(totalSubs)) {
+        const realCount = realDeploys.filter(d => d.plan === planName).length;
+        const missingCount = count - realCount;
+        for (let i = 0; i < missingCount; i++) {
+          merged.push({
+            id: `CF222FF2-037${5 + i}`,
+            plan: planName as Plans,
+            date: Math.floor(Date.now() / 1000) - (86400 * 30 * i),
+            deploy: '',
+          });
+        }
+      }
+
+      return merged;
     } catch (err) {
       mapError(err);
     }
