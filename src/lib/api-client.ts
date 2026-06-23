@@ -15,7 +15,9 @@ import type { API, Resource, SubscriptionDeploy } from '@metacall/protocol';
 import type { Deployment, MetaCallJSON, Plans } from '@/shared/types';
 import { readMockSubscriptions } from '@/shared/lib/plan';
 
-const TOKEN_KEY = 'faas_token';
+import { LS_TOKEN_KEY } from '@/shared/constants';
+
+const TOKEN_KEY = LS_TOKEN_KEY;
 
 if (typeof window !== 'undefined') {
   const originalFetch = window.fetch;
@@ -203,7 +205,7 @@ export const api = {
       try {
         const response = await fetch(`${BASE_URL}/api/billing/list-subscriptions-deploys`, {
           headers: {
-            Authorization: `jwt ${token}`,
+            Authorization: `jwt ${getToken()}`,
           },
         });
         if (response.ok) {

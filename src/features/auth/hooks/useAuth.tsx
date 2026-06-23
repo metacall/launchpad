@@ -7,6 +7,7 @@ import {
     type ReactNode,
 } from 'react';
 import { api } from '@/lib/api-client';
+import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
 
 interface AuthUser {
     email: string;
@@ -22,8 +23,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const TOKEN_KEY = 'faas_token';
-const EMAIL_KEY = 'faas_user_email';
+// Token/email keys are defined once in src/shared/constants/index.ts
+const TOKEN_KEY = LS_TOKEN_KEY;
+const EMAIL_KEY = LS_EMAIL_KEY;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AuthUser | null>(() => {

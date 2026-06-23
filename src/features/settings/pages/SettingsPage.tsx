@@ -16,18 +16,28 @@ import {
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { api } from '@/lib/api-client';
 import { removeMockSubscription, normalizePlan } from '@/shared/lib/plan';
+import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
+import type { Deployment } from '@/shared/types';
+import type { SubscriptionDeploy } from '@metacall/protocol';
 
-const formatDate = (dateVal: number | string | undefined) => {
+/** Format a Unix timestamp (seconds or ms) or ISO string into a readable local date. */
+const formatDate = (dateVal: number | string | undefined): string => {
   if (!dateVal) return 'N/A';
-  const ms = typeof dateVal === 'number' ? (dateVal < 10000000000 ? dateVal * 1000 : dateVal) : Date.parse(dateVal);
-  if (isNaN(Number(ms))) return String(dateVal);
+  const ms =
+    typeof dateVal === 'number'
+      ? dateVal < 10_000_000_000
+        ? dateVal * 1000
+        : dateVal
+      : Date.parse(String(dateVal));
+  if (isNaN(ms)) return String(dateVal);
   const d = new Date(ms);
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 };
 
+
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const [email] = useState(() => localStorage.getItem('faas_user_email') ?? 'example@gmail.com');
+  const [email] = useState(() => localStorage.getItem(LS_EMAIL_KEY) ?? 'example@gmail.com');
   const [vatId, setVatId] = useState(() => localStorage.getItem('faas_vat_id') ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -38,8 +48,8 @@ export default function SettingsPage() {
     null,
   );
 
-  const [deployments, setDeployments] = useState<any[]>([]);
-  const [subDeploys, setSubDeploys] = useState<any[]>([]);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [subDeploys, setSubDeploys] = useState<SubscriptionDeploy[]>([]);
   const [loadingDeploys, setLoadingDeploys] = useState(true);
 
   const fetchSettingsData = useCallback(async () => {
@@ -98,7 +108,7 @@ export default function SettingsPage() {
   }, [subDeploys]);
 
   const authToken =
-    localStorage.getItem('faas_token') ?? (import.meta.env.VITE_FAAS_TOKEN as string);
+    localStorage.getItem(LS_TOKEN_KEY) ?? (import.meta.env.VITE_FAAS_TOKEN as string);
   const maskedAuthToken = useMemo(() => {
     if (!authToken) return 'local';
     if (authToken.length <= 16) return authToken;
@@ -158,8 +168,8 @@ export default function SettingsPage() {
 
   const handleDeleteAccount = () => {
     if (!confirm('Delete local account data and sign out?')) return;
-    localStorage.removeItem('faas_token');
-    localStorage.removeItem('faas_user_email');
+    localStorage.removeItem(LS_TOKEN_KEY);
+    localStorage.removeItem(LS_EMAIL_KEY);
     localStorage.removeItem('faas_vat_id');
     navigate('/', { replace: true });
   };

@@ -15,6 +15,7 @@ import {
   FolderGit2,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
+import type { Deployment } from '@/shared/types';
 import { Spinner } from '@/shared/ui/Spinner';
 import {
   getPlanLabel,
@@ -59,7 +60,7 @@ export default function DeployRepositoryPage() {
 
   const [subscriptions, setSubscriptions] = useState<Record<string, number>>({});
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
-  const [deployments, setDeployments] = useState<any[]>([]);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loadingDeployments, setLoadingDeployments] = useState(true);
   const [slotOccupied, setSlotOccupied] = useState(false);
 
