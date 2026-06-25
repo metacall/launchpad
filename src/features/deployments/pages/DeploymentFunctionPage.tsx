@@ -173,7 +173,7 @@ export default function DeploymentDetailPage() {
                   <span className="text-slate-200">·</span>
                   <span className="font-mono">{deployment.version}</span>
                   <span className="text-slate-200">·</span>
-                  <span className="font-semibold text-slate-500">{deploymentPlan}</span>
+                  <span className="font-semibold text-slate-500 text-[10px]">{deploymentPlan}</span>
                   {langs.length > 0 && (
                     <>
                       <span className="text-slate-200">·</span>
@@ -222,21 +222,21 @@ export default function DeploymentDetailPage() {
         <div className="flex flex-col md:flex-row flex-1 min-h-0">
 
           {/* Left panel */}
-          <div className="w-full md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-5 flex flex-col gap-6 bg-slate-50/40 overflow-y-auto">
+          <div className="hidden md:flex w-full md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-5 flex-col gap-6 bg-slate-50/40 overflow-y-auto">
 
             {/* Quick stats */}
             <div className="grid grid-cols-2 gap-2">
               {[
                 { label: 'Functions', value: totalFns, icon: <Layers size={13} /> },
                 { label: 'Packages', value: Object.keys(deployment.packages ?? {}).length, icon: <Box size={13} /> },
-                { label: 'Plan', value: deploymentPlan, icon: <Server size={13} /> },
+                { label: 'Plan', value: deploymentPlan, icon: <Server size={13} />, className: 'hidden sm:flex' },
               ].map(item => (
-                <div key={item.label} className="flex flex-col gap-1 bg-gray-50 border-slate-200 rounded-lg px-3 py-2.5">
+                <div key={item.label} className={`flex flex-col gap-1 bg-gray-50 border-slate-200 rounded-lg px-3 py-2.5 ${item.className ?? ''}`}>
                   <div className="flex items-center gap-1.5 text-slate-400">
                     {item.icon}
                     <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
                   </div>
-                  <span className="text-xl font-bold text-slate-800">{item.value}</span>
+                  <span className={`font-bold text-slate-800 ${item.label === 'Plan' ? 'text-xs' : 'text-xl'}`}>{item.value}</span>
                 </div>
               ))}
             </div>
