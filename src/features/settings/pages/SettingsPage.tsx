@@ -11,12 +11,13 @@ import {
   RefreshCw,
   Rocket,
   Lock,
-  FileText,
+  Download,
 } from 'lucide-react';
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { api } from '@/lib/api-client';
 import { removeMockSubscription, normalizePlan } from '@/shared/lib/plan';
 import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
+import { downloadInvoicePDF, formatInvoiceNumber } from '../utils/invoice';
 import type { Deployment } from '@/shared/types';
 import type { SubscriptionDeploy } from '@metacall/protocol';
 
@@ -33,6 +34,40 @@ const formatDate = (dateVal: number | string | undefined): string => {
   const d = new Date(ms);
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 };
+
+interface PdfIconProps {
+  className?: string;
+  size?: number;
+}
+
+const PdfIcon = ({ className = '', size = 16 }: PdfIconProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    className={`fill-red-50 hover:scale-110 transition-transform cursor-pointer shrink-0 ${className}`}
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14 2 14 8 20 8" />
+    <text
+      x="6"
+      y="18"
+      fill="currentColor"
+      stroke="none"
+      fontSize="6"
+      fontWeight="bold"
+      fontFamily="sans-serif"
+    >
+      PDF
+    </text>
+  </svg>
+);
+
+
 
 
 export default function SettingsPage() {
@@ -74,20 +109,20 @@ export default function SettingsPage() {
   }, [fetchSettingsData]);
 
   const billingHistory = useMemo(() => {
+    const list = [
+      { id: 'sub_1MbodOLWWfeIOnVypRnDIvw0', date: '2/15/2023 10:49:10 PM', amount: '€0.00' },
+      { id: 'sub_1Mn8fPLWWfeIOnVyjSpq4CZV', date: '3/19/2023 04:26:03 AM', amount: '€0.00' },
+      { id: 'sub_1NKr1ZLWWfeIOnVyCPkc4RW7', date: '6/20/2023 04:28:17 AM', amount: '€0.00' },
+    ];
     if (subDeploys.length > 0) {
-      return subDeploys.map(item => ({
+      const realList = subDeploys.map(item => ({
         id: item.id || `CF222FF2-${item.plan || 'MOCK'}`,
         date: formatDate(item.date),
         amount: '€0.00',
       }));
+      return [...realList, ...list];
     }
-    return [
-      { id: 'CF222FF2-0379', date: '6/15/2026 10:50:24 PM', amount: '€0.00' },
-      { id: 'CF222FF2-0375', date: '5/20/2026 4:29:28 AM', amount: '€0.00' },
-      { id: 'CF222FF2-0373', date: '5/19/2026 4:26:18 AM', amount: '€0.00' },
-      { id: 'CF222FF2-0372', date: '5/15/2026 10:51:32 PM', amount: '€0.00' },
-      { id: 'CF222FF2-0368', date: '4/20/2026 4:28:44 AM', amount: '€0.00' },
-    ];
+    return list;
   }, [subDeploys]);
 
   const activePaidSubscriptionsList = useMemo(() => {
@@ -163,6 +198,14 @@ export default function SettingsPage() {
         type: 'error',
         text: error.message || 'Failed to cancel subscription.',
       });
+    }
+  };
+
+  const handleDownloadInvoice = async (receiptId: string, date: string, amount: string) => {
+    try {
+      await downloadInvoicePDF(receiptId, date, amount);
+    } catch (err) {
+      console.error('Failed to download PDF invoice:', err);
     }
   };
 
@@ -442,9 +485,14 @@ export default function SettingsPage() {
                   ) : billingHistory.length > 0 ? (
                     billingHistory.map(row => (
                       <tr key={row.id} className="hover:bg-slate-50/50 transition-all duration-150">
-                        <td className="py-3 px-4 font-mono flex items-center gap-1.5 text-slate-600">
-                          <FileText size={12} className="text-red-500 shrink-0" />
-                          {row.id}
+                        <td
+                          onClick={() => handleDownloadInvoice(row.id, row.date, row.amount)}
+                          className="py-3 px-4 font-mono flex items-center gap-2 text-slate-600 hover:text-blue-600 cursor-pointer group/receipt select-none"
+                          title="Download PDF Invoice"
+                        >
+                          <PdfIcon className="text-slate-600" size={16}  />
+                          <span className="group-hover/receipt:underline truncate max-w-40 sm:max-w-none">{formatInvoiceNumber(row.id)}</span>
+                          <Download size={12} className="text-slate-400 opacity-0 group-hover/receipt:opacity-100 transition-opacity ml-1" />
                         </td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-[9px] font-bold bg-emerald-50 text-gray-700 border border-emerald-200 uppercase tracking-wide">
@@ -544,7 +592,7 @@ export default function SettingsPage() {
                     activePaidSubscriptionsList.map(item => {
                       const associatedDeploy = item.deploy
                         ? { suffix: item.deploy }
-                        : deployments.find(d => normalizePlan(d.plan) === item.planName);
+                        : deployments.find(d => normalizePlan((d as any).plan) === item.planName);
                       const deployText = associatedDeploy ? (
                         <span
                           className="font-semibold text-blue-600 underline hover:text-blue-800 cursor-pointer"
