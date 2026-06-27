@@ -1,141 +1,87 @@
-# MetaCall FaaS Dashboard
+# <img src="./public/logo.svg" alt="MetaCall Logo" height="24" valign="middle" /> MetaCall Launchpad
 
-MetaCall FaaS Dashboard is the official web-based administrative console for the MetaCall Function-as-a-Service (FaaS) platform. It provides a comprehensive graphical user interface for developers and system administrators to manage, monitor, and test polyglot deployments seamlessly.
-
-This project is maintained by the MetaCall Organization and integrates directly with the MetaCall FaaS API.
+MetaCall Launchpad is the official web-based interface for managing and deploying polyglot applications to the MetaCall Function-as-a-Service (FaaS) platform. It allows developers to configure environments, inspect active deployments, monitor real-time logs, and invoke polyglot functions directly from the browser.
 
 ## Demonstration
 
-The video below demonstrates the primary developer workflow, including authentication, deployment management, and real-time polyglot function execution:
+A complete walk-through of the primary developer workflow—including deployment management, and real-time polyglot function execution:
 
-<video src="public/MetaCall_Launchpad.mp4" width="100%" controls></video>
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/123bdb2c-f7a6-4530-a8a0-c0726e29cd68" width="640" controls>
+    <a href="https://github.com/user-attachments/assets/123bdb2c-f7a6-4530-a8a0-c0726e29cd68">Watch the Launchpad Demonstration Video</a>
+  </video>
+</p>
 
 ## Key Features
 
-* **Authentication and Access Control**: Secure user registration, multi-session management, token-based authorization, and protected client-side routing.
+* **Authentication & Access Control**: Secure login, registration, token-based authorization, and protected client-side routing.
 * **Polyglot Service Deployment**: Deploy applications directly from ZIP files, remote Git repositories, or pre-configured software templates.
-* **Interactive Function Testing**: Inspect deployed endpoints and invoke functions written in different programming languages (JavaScript, Python, Ruby, Go, C#, C/C++, Rust, etc.) directly from the browser.
+* **Interactive Function Testing**: Inspect deployed endpoints and invoke functions written in different programming languages (JavaScript, Python, Ruby, Go, C#, C/C++, Rust, etc.) in real time.
 * **Real-Time Logs**: Stream live stdout and stderr consoles from deployed services for simplified debugging and performance monitoring.
 * **Subscription Management**: Review and update subscription tiers, purchase or manage licenses, and checkout billing statements.
-* **Settings Control Panel**: Configure account preferences, manage authentication tokens, and inspect system environments.
-* **Team Support**: Integrated support chat panel allowing direct communication with the MetaCall engineering and maintenance team.
-
-## Technology Stack
-
-The dashboard is built using modern, type-safe web technologies:
-
-* **Framework**: React 19 (TypeScript)
-* **Build System**: Vite 7
-* **Styling**: Tailwind CSS v4 with Lucide React icons
-* **Utilities**: JSZip for bundle packing, jsPDF for documentation export
-* **Unit Testing**: Vitest
-* **End-to-End Testing**: Playwright
-
-## Directory Structure
-
-The project follows a modular, feature-based architecture to ensure clean separation of concerns and maintainability:
-
-```text
-Dashboard/
-├── src/
-│   ├── app/                # App bootstrap, providers, routing, and environment config
-│   ├── features/           # Feature-based pages, hooks, and components (auth, deployments, logs, etc.)
-│   ├── lib/                # Shared API clients and utility libraries
-│   ├── shared/             # Reusable UI components, layout structures, typescript definitions, and constants
-│   └── tests/              # Component and hook unit tests (Vitest)
-├── tests/                  # End-to-End test suites and environment configuration (Playwright)
-│   ├── e2e/                # Test specifications (smoke tests, full-flow auth, deployments)
-│   ├── pages/              # Page Object Models (POMs) for robust E2E selectors
-│   ├── fixtures/           # Mock data and pre-authenticated test fixtures
-│   ├── utils/              # Test-specific helper utilities
-│   ├── mocks/              # Local server API mocks
-│   ├── storage/            # Persisted state and authentication files
-│   └── global/             # Global test execution hooks and setups
-├── public/                 # Static assets and media files
-└── TEST_README.md          # Dedicated testing guide and local setup details
-```
+* **Settings & Live Support**: Manage API tokens, configure account preferences, and contact the MetaCall support team.
 
 ## Getting Started
 
 ### Prerequisites
 
-To run the MetaCall FaaS Dashboard locally, ensure you have:
-
 * **Node.js**: Version 20.0.0 or higher
 * **npm**: Version 10.0.0 or higher
 * **MetaCall FaaS Backend**: A running instance of the MetaCall FaaS server (defaults to `http://localhost:9000`)
 
-### Installation
+### Installation & Run
 
-Clone the repository and install the project dependencies:
+1. Clone the repository and install dependencies:
+   ```bash
+   cd Dashboard
+   npm install
+   ```
+2. Configure your environment:
+   ```bash
+   cp .env.example .env
+   ```
+   Set `VITE_FAAS_URL` to point to your running FaaS backend.
+3. Start the local development server:
+   ```bash
+   npm run dev
+   ```
+   By default, the application runs at `http://localhost:5173`.
 
-```bash
-cd Dashboard
-npm install
-```
-
-### Environment Configuration
-
-Create a local environment file by copying the template:
-
-```bash
-cp .env.example .env
-```
-
-Configure the environment variables in `.env` as required:
-
-```env
-VITE_FAAS_URL=http://localhost:9000
-VITE_FAAS_TOKEN=your_auth_token_here
-```
-
-*Note: The application manages sessions dynamically via JWTs stored in `localStorage`. The `VITE_FAAS_TOKEN` variable remains available for fallback configurations and automated local test runner verification.*
-
-### Running the Application
-
-Start the local development server:
-
-```bash
-npm run dev
-```
-
-The application will start, by default, at `http://localhost:5173`.
-
-## Scripts Reference
-
-The following npm scripts are available for development, quality assurance, and deployment preparation:
+## Commands Reference
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Starts the Vite development server |
-| `npm run build` | Builds the production-ready application bundle |
-| `npm run preview` | Runs a local server to preview the production build |
-| `npm run lint` | Inspects the codebase for style and syntax issues using ESLint |
-| `npm run lint:fix` | Automatically repairs linting issues where possible |
-| `npm run format` | Formats source files with Prettier |
-| `npm run format:check`| Checks if source files conform to Prettier styling |
-| `npm run typecheck` | Validates TypeScript compilation without compiling output files |
-| `npm run unit` | Runs all unit tests with Vitest |
-| `npm run unit:watch` | Runs Vitest in watch mode |
-| `npm run unit:coverage`| Generates a test coverage report using Vitest |
-| `npm run test` | Runs the full Playwright E2E suite |
-| `npm run test:smoke` | Runs quick Playwright smoke tests (~9 tests, ~6s execution) |
-| `npm run test:ui` | Opens the interactive Playwright test runner UI |
-| `npm run test:debug` | Runs E2E tests in step-through debug mode |
+| `npm run dev` | Start the local development server |
+| `npm run build` | Build the production application bundle |
+| `npm run preview` | Preview the local production build |
+| `npm run lint` / `lint:fix` | Check and fix ESLint issues |
+| `npm run format` / `format:check` | Format files and check formatting with Prettier |
+| `npm run unit` | Run unit tests with Vitest |
+| `npm run test` | Run full Playwright E2E suite |
+| `npm run test:smoke` | Run fast Playwright E2E smoke tests |
 
-## Testing
-
-For detailed explanations of unit and end-to-end testing, browser installations, and mocking configurations, please refer to the [Testing Guide](TEST_README.md).
+For detailed information about tests and E2E setup, refer to the [Testing Guide](TEST_README.md).
 
 ## Contributing
 
-As an official MetaCall project, we welcome community contributions. To contribute:
+1. Fork the repository and create a branch.
+2. Ensure linting, type-checking, and unit tests pass before committing.
+3. Submit a Pull Request to the main branch.
 
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Ensure all tests and linting checks pass successfully (`npm run typecheck && npm run lint && npm run unit`).
-4. Commit your changes and open a Pull Request.
+## Code of Conduct
+
+To ensure a positive and inclusive environment, please review our [Code of Conduct](https://github.com/metacall/.github/blob/master/CODE_OF_CONDUCT.md).
+
+## Community
+
+* **Discussion Forum**: [Join the Conversation](https://github.com/metacall/core/discussions)
+* **Twitter**: [Follow Us](https://twitter.com/metacallio)
+* **Discord**: [Join our Discord](https://discord.gg/upwP4mwJWa)
+* **Telegram**: [Join our Telegram](https://t.me/joinchat/BMSVbBatp0Vi4s5l4VgUgg)
+* **Matrix**: [Join our Matrix](https://matrix.to/#/#metacall:matrix.org)
 
 ## License
 
-This project is licensed under the Apache License 2.0. See the LICENSE file in the parent repository for more information.
+## License
+
+A license has not been specified for this project yet and will be added in a future release.
