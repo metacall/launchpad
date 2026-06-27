@@ -5,7 +5,7 @@
 The dashboard already has a solid frontend base:
 
 - Auth screens, protected routes, and the main app shell are in place.
-- Dashboard, deployments list, deployment function, logs but now working , settings ui only, plans ui only, and chat routes all exist.
+- Dashboard, deployments list, deployment detail, logs viewer, settings (UI only), plans (UI only), and chat routes all exist.
 - ZIP deploy and repository deploy flows are wired to backend calls.
 - Unit tests and Playwright smoke tests are set up.
 

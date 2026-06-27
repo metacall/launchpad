@@ -9,77 +9,58 @@
  */
 
 import Protocol, { isProtocolError, ResourceType as ProtocolResourceType, LogType } from '@metacall/protocol';
-import loginFn from '@metacall/protocol/login';
-import signupFn from '@metacall/protocol/signup';
 import type { API, Resource, SubscriptionDeploy } from '@metacall/protocol';
 import type { Deployment, MetaCallJSON, Plans } from '@/shared/types';
 import { readMockSubscriptions } from '@/shared/lib/plan';
 
-const TOKEN_KEY = 'faas_token';
+import { LS_TOKEN_KEY } from '@/shared/constants';
+import { env } from '@/app/config/env';
 
-if (typeof window !== 'undefined') {
-  const originalFetch = window.fetch;
-  window.fetch = async function (input, init) {
-    const urlStr =
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-        ? input.toString()
-        : (input as Request).url;
-    if (init && init.method === 'POST' && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
-      try {
-        if (typeof init.body === 'string') {
-          const bodyObj = JSON.parse(init.body) as Record<string, unknown>;
-          if (!bodyObj['g-recaptcha-response']) {
-            bodyObj['g-recaptcha-response'] = 'empty';
-            init = {
-              ...init,
-              body: JSON.stringify(bodyObj)
-            };
-          }
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
-    const res = await originalFetch.call(this, input, init);
-    if (!res.ok && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
-      try {
-        const cloned = res.clone();
-        const text = await cloned.text();
-        if (text) {
-          Object.defineProperty(res, 'statusText', {
-            value: text.trim(),
-            writable: false,
-            configurable: true
-          });
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
-    if (res.ok && urlStr.includes('/api/deploy/logs')) {
-      try {
-        const cloned = res.clone();
-        await cloned.json();
-      } catch (jsonErr) {
-        try {
-          const text = await res.text();
-          const jsonString = JSON.stringify(text);
-          return new Response(jsonString, {
-            status: res.status,
-            statusText: res.statusText,
-            headers: new Headers({
-              'Content-Type': 'application/json'
-            })
-          });
-        } catch (e) {
-          // Ignore
+const TOKEN_KEY = LS_TOKEN_KEY;
+
+async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const urlStr =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+      ? input.toString()
+      : (input as Request).url;
+
+  let newInit = { ...init };
+
+  if (newInit && newInit.method === 'POST' && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
+    try {
+      if (typeof newInit.body === 'string') {
+        const bodyObj = JSON.parse(newInit.body) as Record<string, unknown>;
+        if (!bodyObj['g-recaptcha-response']) {
+          bodyObj['g-recaptcha-response'] = 'empty';
+          newInit.body = JSON.stringify(bodyObj);
         }
       }
+    } catch {
+      // Ignore
     }
-    return res;
-  };
+  }
+
+  const res = await fetch(input, newInit);
+
+  if (!res.ok && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
+    try {
+      const cloned = res.clone();
+      const text = await cloned.text();
+      if (text) {
+        Object.defineProperty(res, 'statusText', {
+          value: text.trim(),
+          writable: false,
+          configurable: true
+        });
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  return res;
 }
 
 const BASE_URL =
@@ -197,13 +178,11 @@ export const api = {
   /** List subscription deploys. */
   listSubscriptionsDeploys: async (): Promise<SubscriptionDeploy[]> => {
     try {
-      const token = localStorage.getItem(TOKEN_KEY) || '';
-      
       let realDeploys: SubscriptionDeploy[] = [];
       try {
         const response = await fetch(`${BASE_URL}/api/billing/list-subscriptions-deploys`, {
           headers: {
-            Authorization: `jwt ${token}`,
+            Authorization: `jwt ${getToken()}`,
           },
         });
         if (response.ok) {
@@ -312,7 +291,41 @@ export const api = {
     try {
       const logType = type === 'job' ? LogType.Job : LogType.Deploy;
       const container = type === 'deploy' ? 'deploy' : '';
-      return await getProtocol().logs(container, logType, suffix, prefix);
+
+      const response = await fetch(`${BASE_URL}/api/deploy/logs`, {
+        method: 'POST',
+        headers: {
+          Authorization: `jwt ${getToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          container,
+          type: logType,
+          suffix,
+          prefix,
+          version: 'v1',
+        }),
+        signal: _signal,
+      });
+
+      if (!response.ok) {
+        const data = await response.text().catch(() => null);
+        throw new ApiError(
+          `HTTP ${response.status}: ${response.statusText}${
+            data ? ` - ${data}` : ''
+          }`,
+          response.status,
+          data
+        );
+      }
+
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        return typeof parsed === 'string' ? parsed : text;
+      } catch {
+        return text;
+      }
     } catch (err) {
       mapError(err);
     }
@@ -327,7 +340,36 @@ export const api = {
     args: unknown[] = [],
   ): Promise<R> => {
     try {
-      return await getProtocol().call<R>(prefix, suffix, version, name, args);
+      const baseUrl = env.FAAS_URL.replace(/\/+$/, '');
+      const url = `${baseUrl}/${prefix}/${suffix}/${version}/call/${name}`;
+
+      const response = await fetch(url, {
+        method: args === undefined || args.length === 0 ? 'GET' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `jwt ${getToken()}`,
+        },
+        body: args === undefined || args.length === 0 ? undefined : JSON.stringify(args),
+      });
+
+      if (!response.ok) {
+        const data = await response.text().catch(() => null);
+        throw new ApiError(
+          `HTTP ${response.status}: ${response.statusText}${
+            data ? ` - ${data}` : ''
+          }`,
+          response.status,
+          data
+        );
+      }
+
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        return (typeof parsed === 'string' ? parsed : parsed) as R;
+      } catch {
+        return text as unknown as R;
+      }
     } catch (err) {
       mapError(err);
     }
@@ -353,7 +395,22 @@ export const api = {
 
   login: async (email: string, password: string): Promise<string> => {
     try {
-      const token = await loginFn(email, password, BASE_URL);
+      const res = await authFetch(`${BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          Host: new URL(BASE_URL).host,
+          Origin: BASE_URL,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!res.ok) {
+        throw new Error(res.statusText);
+      }
+
+      const token = await res.text();
       if (!token) throw new ApiError('Login failed: no token received');
 
       try {
@@ -376,7 +433,22 @@ export const api = {
 
   signup: async (email: string, password: string, alias: string): Promise<string> => {
     try {
-      const token = await signupFn(email, password, alias, BASE_URL);
+      const res = await authFetch(`${BASE_URL}/signup`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          Host: new URL(BASE_URL).host,
+          Origin: BASE_URL,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password, alias })
+      });
+
+      if (!res.ok) {
+        throw new Error(res.statusText);
+      }
+
+      const token = await res.text();
       if (!token) throw new ApiError('Signup failed: no token received');
 
       try {

@@ -1,146 +1,141 @@
 # MetaCall FaaS Dashboard
 
-A React dashboard for working with a local MetaCall FaaS server.
+MetaCall FaaS Dashboard is the official web-based administrative console for the MetaCall Function-as-a-Service (FaaS) platform. It provides a comprehensive graphical user interface for developers and system administrators to manage, monitor, and test polyglot deployments seamlessly.
 
-It already covers the main developer flow: sign in, inspect deployments, deploy from a ZIP or repository, open logs, test exposed functions, and manage a few local account settings. Some parts are production-ready in shape, while others are still demo or local-only.
+This project is maintained by the MetaCall Organization and integrates directly with the MetaCall FaaS API.
 
-## Preview
+## Demonstration
 
-**Login**  
-<img width="1919" height="934" alt="Login preview" src="https://github.com/user-attachments/assets/099ce821-7d31-4f41-a283-a27a95097df7" />
+The video below demonstrates the primary developer workflow, including authentication, deployment management, and real-time polyglot function execution:
 
-**Signup**  
-<img width="1919" height="934" alt="Signup preview" src="https://github.com/user-attachments/assets/943ce8be-c98b-417c-85cf-4ff53a523377" />
+<video src="public/MetaCall_Launchpad.mp4" width="100%" controls></video>
 
-**Dashboard**  
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/125aaf75-9b26-4031-86d4-1bac29a74906" />
+## Key Features
 
-**New Deploy Page**  
-<img width="1919" height="934" alt="New deploy preview" src="https://github.com/user-attachments/assets/a8779ae6-5dc9-4a05-888d-0c0eeeda8e07" />
+* **Authentication and Access Control**: Secure user registration, multi-session management, token-based authorization, and protected client-side routing.
+* **Polyglot Service Deployment**: Deploy applications directly from ZIP files, remote Git repositories, or pre-configured software templates.
+* **Interactive Function Testing**: Inspect deployed endpoints and invoke functions written in different programming languages (JavaScript, Python, Ruby, Go, C#, C/C++, Rust, etc.) directly from the browser.
+* **Real-Time Logs**: Stream live stdout and stderr consoles from deployed services for simplified debugging and performance monitoring.
+* **Subscription Management**: Review and update subscription tiers, purchase or manage licenses, and checkout billing statements.
+* **Settings Control Panel**: Configure account preferences, manage authentication tokens, and inspect system environments.
+* **Team Support**: Integrated support chat panel allowing direct communication with the MetaCall engineering and maintenance team.
 
-**Small Screen**  
-<img width="1919" height="934" alt="Mobile preview" src="https://github.com/user-attachments/assets/570e8f6f-82d5-4b90-8dd6-b8543815deda" />
+## Technology Stack
 
-**WiZard Edit**  
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/39491a6f-58ed-4f0c-8da8-046df4b0b173" />
+The dashboard is built using modern, type-safe web technologies:
 
-**subscription plans**
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/0381fc5b-cf3e-4ab4-8343-9e15d2322625" />
+* **Framework**: React 19 (TypeScript)
+* **Build System**: Vite 7
+* **Styling**: Tailwind CSS v4 with Lucide React icons
+* **Utilities**: JSZip for bundle packing, jsPDF for documentation export
+* **Unit Testing**: Vitest
+* **End-to-End Testing**: Playwright
 
-**metacall team supports**
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/bfbd2673-2128-4cc4-8459-a962bf0d991d" />
+## Directory Structure
 
-**settings **
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/cfb78590-03bd-42f2-9e73-d94c17863cc2" />
-
-
-
-## Stack
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS v4
-- React Router
-- JSZip
-- Vitest
-- Playwright
-
-## Project Layout
+The project follows a modular, feature-based architecture to ensure clean separation of concerns and maintainability:
 
 ```text
 Dashboard/
 ├── src/
-│   ├── app/                # app bootstrap, providers, router, env config
-│   ├── features/           # feature-first pages, hooks, and components
-│   ├── lib/                # API utilities
-│   ├── shared/             # layout, UI, types, constants, errors
-│   └── tests/              # unit tests
-├── tests/                  # Playwright E2E + shared testing modules
-│   ├── e2e/                # test specs (auth, deployments, logs, smoke)
-│   ├── pages/              # page objects
-│   ├── fixtures/           # shared fixtures
-│   ├── utils/              # test utilities
-│   ├── mocks/              # API mocks and mock data
-│   ├── storage/            # storage state files
-│   └── global/             # global setup/teardown
-├── public/                 # static files
-└── TEST_README.md          # extra testing notes
+│   ├── app/                # App bootstrap, providers, routing, and environment config
+│   ├── features/           # Feature-based pages, hooks, and components (auth, deployments, logs, etc.)
+│   ├── lib/                # Shared API clients and utility libraries
+│   ├── shared/             # Reusable UI components, layout structures, typescript definitions, and constants
+│   └── tests/              # Component and hook unit tests (Vitest)
+├── tests/                  # End-to-End test suites and environment configuration (Playwright)
+│   ├── e2e/                # Test specifications (smoke tests, full-flow auth, deployments)
+│   ├── pages/              # Page Object Models (POMs) for robust E2E selectors
+│   ├── fixtures/           # Mock data and pre-authenticated test fixtures
+│   ├── utils/              # Test-specific helper utilities
+│   ├── mocks/              # Local server API mocks
+│   ├── storage/            # Persisted state and authentication files
+│   └── global/             # Global test execution hooks and setups
+├── public/                 # Static assets and media files
+└── TEST_README.md          # Dedicated testing guide and local setup details
 ```
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js  > 20
-- npm > 10
-- A running MetaCall FaaS backend, usually at `http://localhost:9000`
+To run the MetaCall FaaS Dashboard locally, ensure you have:
 
-### Install
+* **Node.js**: Version 20.0.0 or higher
+* **npm**: Version 10.0.0 or higher
+* **MetaCall FaaS Backend**: A running instance of the MetaCall FaaS server (defaults to `http://localhost:9000`)
+
+### Installation
+
+Clone the repository and install the project dependencies:
 
 ```bash
 cd Dashboard
 npm install
 ```
 
-### Environment
+### Environment Configuration
 
-Create a local env file from the example:
+Create a local environment file by copying the template:
 
 ```bash
 cp .env.example .env
 ```
 
-Example:
+Configure the environment variables in `.env` as required:
 
 ```env
 VITE_FAAS_URL=http://localhost:9000
-VITE_FAAS_TOKEN=faas_token
+VITE_FAAS_TOKEN=your_auth_token_here
 ```
 
-Notes:
+*Note: The application manages sessions dynamically via JWTs stored in `localStorage`. The `VITE_FAAS_TOKEN` variable remains available for fallback configurations and automated local test runner verification.*
 
-- The app currently authenticates normal sessions through login/signup and stores the token in `localStorage`.
-- `VITE_FAAS_TOKEN` still exists in config, but it is not the main auth path for the current client flow.
+### Running the Application
 
-### Run the app
+Start the local development server:
 
 ```bash
 npm run dev
 ```
 
-The Vite app starts at `http://localhost:5173` by default.
+The application will start, by default, at `http://localhost:5173`.
 
-## Scripts
+## Scripts Reference
 
-```bash
-npm run dev
-npm run build
-npm run preview
-npm run lint
-npm run lint:fix
-npm run format
-npm run format:check
-npm run typecheck
-npm run unit
-npm run unit:watch
-npm run unit:coverage
-npm run test
-npm run test:smoke
-```
+The following npm scripts are available for development, quality assurance, and deployment preparation:
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Starts the Vite development server |
+| `npm run build` | Builds the production-ready application bundle |
+| `npm run preview` | Runs a local server to preview the production build |
+| `npm run lint` | Inspects the codebase for style and syntax issues using ESLint |
+| `npm run lint:fix` | Automatically repairs linting issues where possible |
+| `npm run format` | Formats source files with Prettier |
+| `npm run format:check`| Checks if source files conform to Prettier styling |
+| `npm run typecheck` | Validates TypeScript compilation without compiling output files |
+| `npm run unit` | Runs all unit tests with Vitest |
+| `npm run unit:watch` | Runs Vitest in watch mode |
+| `npm run unit:coverage`| Generates a test coverage report using Vitest |
+| `npm run test` | Runs the full Playwright E2E suite |
+| `npm run test:smoke` | Runs quick Playwright smoke tests (~9 tests, ~6s execution) |
+| `npm run test:ui` | Opens the interactive Playwright test runner UI |
+| `npm run test:debug` | Runs E2E tests in step-through debug mode |
 
 ## Testing
 
-- `npm run unit` runs the Vitest suite
-- `npm run test:smoke` runs the Playwright smoke tests
-- `npm run test` runs the full Playwright suite
+For detailed explanations of unit and end-to-end testing, browser installations, and mocking configurations, please refer to the [Testing Guide](TEST_README.md).
 
-Playwright uses its own local dev server on port `5173`.
+## Contributing
 
-## Notes
+As an official MetaCall project, we welcome community contributions. To contribute:
 
-- The repo currently contains local build and test artifacts such as `dist/`, `playwright-report/`, and `test-results/`. They should stay ignored and out of commits.
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Ensure all tests and linting checks pass successfully (`npm run typecheck && npm run lint && npm run unit`).
+4. Commit your changes and open a Pull Request.
 
 ## License
 
-No license file is included yet.
+This project is licensed under the Apache License 2.0. See the LICENSE file in the parent repository for more information.

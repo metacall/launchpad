@@ -9,6 +9,7 @@ import { TreeNodeView } from './TreeNodeView';
 import { TreeCheckbox } from './TreeCheckbox';
 import { EditorView } from './EditorView';
 import { type McConfig, buildJson } from './metacallConfig';
+import type { Deployment } from '@/shared/types';
 import {
   getPlanLabel,
   normalizePlan,
@@ -77,7 +78,7 @@ export default function DeployWizardPage() {
 
   const [subscriptions, setSubscriptions] = useState<Record<string, number>>({});
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
-  const [deployments, setDeployments] = useState<any[]>([]);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loadingDeployments, setLoadingDeployments] = useState(true);
   const [slotOccupied, setSlotOccupied] = useState(false);
 
@@ -128,7 +129,7 @@ export default function DeployWizardPage() {
         return;
       }
       const activeCount = deployments.filter(
-        d => normalizePlan(d.plan) === plan
+        d => normalizePlan((d as any).plan) === plan
       ).length;
       if (activeCount >= (subscriptions[plan] || 0)) {
         setSlotOccupied(true);

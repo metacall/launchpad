@@ -5,6 +5,7 @@ import { StatusBadge } from '@/shared/ui/StatusBadge';
 import { LanguageBadge } from '@/shared/ui/LanguageBadge';
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { ProgressBar } from '@/shared/ui/ProgressBar';
+import { env } from '@/app/config/env';
 
 interface DeploymentTableProps {
   deployments: Deployment[];
@@ -35,7 +36,8 @@ export function DeploymentTable({
         </thead>
         <tbody className="divide-y divide-gray-100 hover:bg-white bg-white">
           {deployments.map(dep => {
-            const endpoint = `http://localhost:9000/${dep.prefix}/${dep.suffix}/v1/call`;
+            const baseUrl = env.FAAS_URL.replace(/\/+$/, '');
+            const endpoint = `${baseUrl}/${dep.prefix}/${dep.suffix}/v1/call`;
             const languages = Object.keys(dep.packages ?? {});
             const status = dep.status as Parameters<typeof ProgressBar>[0]['status'];
             const isProcessing = status === 'create' || status === 'building';

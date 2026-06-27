@@ -127,4 +127,57 @@ describe('api-client', () => {
 
     await expect(api.login('a@b.com', 'pass')).rejects.toThrow(/no token received/i);
   });
+
+  describe('call', () => {
+    it('uses GET and correct path when args are empty', async () => {
+      vi.stubEnv('VITE_FAAS_URL', 'https://api.metacall.io');
+      localStorage.setItem('faas_token', 'my-token');
+      const api = await loadApi();
+
+      mockFetch.mockResolvedValueOnce(makeResponse(200, 'hello'));
+      const res = await api.call('josead', 'ramda', 'v1', 'dropRepeatsBy', []);
+
+      expect(res).toBe('hello');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://api.metacall.io/josead/ramda/v1/call/dropRepeatsBy');
+      expect(options.method).toBe('GET');
+      expect(options.body).toBeUndefined();
+
+      const auth = options.headers instanceof Headers
+        ? options.headers.get('Authorization')
+        : (options.headers as Record<string, string> | undefined)?.['Authorization'];
+      expect(auth).toBe('jwt my-token');
+    });
+
+    it('uses POST and passes body when args are provided', async () => {
+      vi.stubEnv('VITE_FAAS_URL', 'https://api.metacall.io');
+      localStorage.setItem('faas_token', 'my-token');
+      const api = await loadApi();
+
+      mockFetch.mockResolvedValueOnce(makeResponse(200, { result: 42 }));
+      const res = await api.call('josead', 'ramda', 'v1', 'dropRepeatsBy', [1, 2, 3]);
+
+      expect(res).toEqual({ result: 42 });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://api.metacall.io/josead/ramda/v1/call/dropRepeatsBy');
+      expect(options.method).toBe('POST');
+      expect(options.body).toBe(JSON.stringify([1, 2, 3]));
+    });
+    it('replaces dashboard.metacall.io with api.metacall.io in FAAS_URL', async () => {
+      vi.stubEnv('VITE_FAAS_URL', 'https://dashboard.metacall.io');
+      localStorage.setItem('faas_token', 'my-token');
+      const api = await loadApi();
+
+      mockFetch.mockResolvedValueOnce(makeResponse(200, 'hello'));
+      const res = await api.call('josead', 'ramda', 'v1', 'indexBy', []);
+
+      expect(res).toBe('hello');
+      const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://api.metacall.io/josead/ramda/v1/call/indexBy');
+    });
+  });
 });

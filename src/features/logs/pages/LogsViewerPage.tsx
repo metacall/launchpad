@@ -65,7 +65,7 @@ export default function LogsViewerPage() {
   }
 
   return (
-    <div className="flex items-start justify-center min-h-[calc(100vh-80px)] p-4 sm:p-8 pt-6 sm:pt-10 bg-slate-50/50 animate-in fade-in duration-300">
+    <div className="flex items-start justify-center min-h-[calc(100vh-80px)] p-0.5 sm:p-2 pt-0.5 sm:pt-2 bg-slate-50/50 animate-in fade-in duration-300">
       <div className="w-full max-w-6xl flex flex-col h-[calc(100vh-140px)] min-h-125 border border-gray-200 bg-white shadow-sm overflow-hidden rounded-sm">
 
         {/* Header bar */}

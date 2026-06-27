@@ -1,26 +1,37 @@
+/**
+ * auth.smoke.spec.ts
+ *
+ * Smoke tests for the authentication flow.
+ * These tests run WITHOUT the pre-seeded auth storageState (useStorageState: false
+ * is implied by the test not using the "authenticated" project — the default
+ * storageState already handles it since auth.json just contains origins origins).
+ *
+ * Key guarantee: After the vite.config.ts bypass fix, GET /login now serves
+ * index.html and React Router renders LoginPage correctly.
+ */
+
 import { test, expect } from '@playwright/test';
 import { LoginPage } from '../../pages/login.page';
 
-// Smoke tests for authentication
-// Validates login page loads and auth redirects work correctly
+test.use({ storageState: { cookies: [], origins: [] } }); // Explicitly unauthenticated
 
 test.describe('Auth Smoke', () => {
-  test('login page loads', async ({ page }) => {
-    await page.goto('/login');
-    await expect(page).toHaveURL(/\/login/);
-
+  test('login page loads and renders the form', async ({ page }) => {
     const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    await expect(page).toHaveURL(/\/login/);
     await expect(loginPage.submitButton).toBeVisible();
   });
 
-  test('unauthenticated user can reach login', async ({ page }) => {
-    // Verify login page is accessible and displays form
+  test('unauthenticated user can reach the login page', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
+
     expect(await loginPage.isVisible()).toBeTruthy();
   });
 
-  test('login form has required fields', async ({ page }) => {
+  test('login form displays all required fields', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
@@ -29,12 +40,12 @@ test.describe('Auth Smoke', () => {
     await expect(loginPage.submitButton).toBeVisible();
   });
 
-  test('login button is enabled when form is filled', async ({ page }) => {
+  test('login button is enabled once both fields are filled', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
 
-    await loginPage.emailInput.fill('test@example.com');
-    await loginPage.passwordInput.fill('password');
+    await loginPage.fillEmail('test@example.com');
+    await loginPage.fillPassword('password123');
 
     await expect(loginPage.submitButton).toBeEnabled();
   });
