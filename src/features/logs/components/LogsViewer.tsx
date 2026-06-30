@@ -225,6 +225,10 @@ export function LogsViewer({ logs, className, error }: LogsViewerProps) {
                     'group flex items-start gap-0 transition-colors hover:bg-slate-700/60',
                     'bg-transparent'
                   )}
+                  style={{
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: 'auto 24px',
+                  }}
                 >
                   {/* Line number */}
                   <span className="shrink-0 w-12 text-right pr-3 text-slate-500 select-none text-[11px] leading-6 group-hover:text-slate-500 transition-colors border-r border-slate-800">
