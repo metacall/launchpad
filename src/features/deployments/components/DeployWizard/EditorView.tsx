@@ -228,7 +228,7 @@ export function EditorView({
               // Match string values (after colon with quotes)
               if (lastIdx < line.length) {
                 const remaining = line.slice(lastIdx);
-                const valueRegex = /: "([^"]+)"|    "([^"]+)"/g;
+                const valueRegex = /: "([^"]+)"| {4}"([^"]+)"/g;
                 let lastValueIdx = 0;
                 let valueMatch;
                 while ((valueMatch = valueRegex.exec(remaining)) !== null) {

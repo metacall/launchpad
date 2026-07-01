@@ -41,7 +41,7 @@ export function formatInvoiceNumber(receiptId: string): string {
 }
 
 function parseAmount(amountStr: string) {
-  const match = amountStr.match(/^([^\d\s\.-]*)\s*([\d\.,]+)$/);
+  const match = amountStr.match(/^([^\d\s.-]*)\s*([\d.,]+)$/);
   if (match) {
     return {
       symbol: match[1] || '€',
@@ -267,7 +267,7 @@ function generateInvoicePDF(logoPngDataUrl: string | null, receiptId: string, da
       const yearStr = startYear === endYear ? `, ${startYear}` : ` ${startYear} - ${endMonth} ${endDay}, ${endYear}`;
       billingRange = `${startMonth} ${startDay}-${endMonth} ${endDay}${yearStr}`;
     }
-  } catch (e) {
+  } catch {
     // Fallback
   }
   doc.text(billingRange, margin, currentY);

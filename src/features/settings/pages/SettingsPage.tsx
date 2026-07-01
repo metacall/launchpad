@@ -592,7 +592,7 @@ export default function SettingsPage() {
                     activePaidSubscriptionsList.map(item => {
                       const associatedDeploy = item.deploy
                         ? { suffix: item.deploy }
-                        : deployments.find(d => normalizePlan((d as any).plan) === item.planName);
+                        : deployments.find(d => normalizePlan((d as Deployment & { plan?: string }).plan) === item.planName);
                       const deployText = associatedDeploy ? (
                         <span
                           className="font-semibold text-blue-600 underline hover:text-blue-800 cursor-pointer"

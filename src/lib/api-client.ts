@@ -26,7 +26,7 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
       ? input.toString()
       : (input as Request).url;
 
-  let newInit = { ...init };
+  const newInit = { ...init };
 
   if (newInit && newInit.method === 'POST' && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
     try {
