@@ -20,10 +20,16 @@ export function useDeploymentMonitor({
   onFailed,
 }: UseDeploymentMonitorOptions) {
   const [status, setStatus] = useState<ProgressStatusValue>('create');
+  const [prevTargetKey, setPrevTargetKey] = useState(() => target ? `${target.suffix}-${target.startedAt}` : '');
+
+  const currentKey = target ? `${target.suffix}-${target.startedAt}` : '';
+  if (currentKey !== prevTargetKey) {
+    setPrevTargetKey(currentKey);
+    setStatus('create');
+  }
 
   useEffect(() => {
     if (!target) {
-      setStatus('create');
       return;
     }
 
@@ -59,7 +65,6 @@ export function useDeploymentMonitor({
       timeoutId = window.setTimeout(poll, 1500);
     };
 
-    setStatus('create');
     timeoutId = window.setTimeout(poll, 900);
 
     return () => {

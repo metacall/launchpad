@@ -115,7 +115,7 @@ export default function DeployRepositoryPage() {
         return;
       }
       const activeCount = deployments.filter(
-        d => normalizePlan((d as any).plan) === plan
+        d => normalizePlan((d as Deployment & { plan?: string }).plan) === plan
       ).length;
       if (activeCount >= (subscriptions[plan] || 0)) {
         setSlotOccupied(true);
@@ -593,7 +593,11 @@ export default function DeployRepositoryPage() {
                         <button
                           onClick={() => {
                             const next = new Set(hiddenValues);
-                            next.has(row.id) ? next.delete(row.id) : next.add(row.id);
+                            if (next.has(row.id)) {
+                              next.delete(row.id);
+                            } else {
+                              next.add(row.id);
+                            }
                             setHiddenValues(next);
                           }}
                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"

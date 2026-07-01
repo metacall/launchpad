@@ -52,7 +52,13 @@ export function DeploymentProgressCard({
   startedAt,
 }: DeploymentProgressCardProps) {
   const [elapsed, setElapsed] = useState(() => getElapsed(startedAt));
+  const [prevStartedAt, setPrevStartedAt] = useState(startedAt);
   const [tipIdx, setTipIdx] = useState(0);
+
+  if (startedAt !== prevStartedAt) {
+    setPrevStartedAt(startedAt);
+    setElapsed(getElapsed(startedAt));
+  }
 
   const isError   = status === 'error' || status === 'failed' || status === 'fail';
   const isDone    = status === 'ready';
@@ -60,7 +66,6 @@ export function DeploymentProgressCard({
 
   // Live elapsed counter
   useEffect(() => {
-    setElapsed(getElapsed(startedAt));
     if (!isBuilding) return;
     const id = window.setInterval(() => setElapsed(getElapsed(startedAt)), 500);
     return () => window.clearInterval(id);

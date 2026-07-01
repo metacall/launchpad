@@ -129,7 +129,7 @@ export default function DeployWizardPage() {
         return;
       }
       const activeCount = deployments.filter(
-        d => normalizePlan((d as any).plan) === plan
+        d => normalizePlan((d as Deployment & { plan?: string }).plan) === plan
       ).length;
       if (activeCount >= (subscriptions[plan] || 0)) {
         setSlotOccupied(true);
