@@ -90,7 +90,7 @@ function NewDeployCard() {
   const { plusHover } = PLAN_CLASSES.Free;
   return (
     <div
-      className="flex flex-col cursor-pointer border border-gray-200 bg-white hover:shadow-sm transition-all"
+      className="flex flex-col cursor-pointer border border-gray-200 bg-white hover:shadow-[0_12px_24px_-10px_rgba(0,0,0,0.15)] hover:-translate-y-1 hover:border-gray-400 transition-all duration-300 ease-out"
       onClick={() => navigate('/deployments/new', { state: { plan: FREE_PLAN } })}
     >
       <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-white bg-gray-500">
@@ -113,9 +113,16 @@ function LaunchpadCard({ dep }: { dep: Deployment }) {
     plan: (dep as unknown as Record<string, unknown>).plan as string | undefined,
   });
   const { headerBg } = getPlanClasses(plan);
+
+  let borderHoverClass = 'hover:border-blue-500';
+  if (plan === 'Free') borderHoverClass = 'hover:border-gray-500';
+  if (plan === 'Essential') borderHoverClass = 'hover:border-blue-500';
+  if (plan === 'Standard') borderHoverClass = 'hover:border-purple-500';
+  if (plan === 'Premium') borderHoverClass = 'hover:border-pink-500';
+
   return (
     <div
-      className="flex flex-col border border-dashed border-gray-300 bg-white hover:shadow-sm transition-all cursor-pointer"
+      className={`flex flex-col border border-dashed border-gray-300 bg-white hover:shadow-[0_12px_24px_-10px_rgba(0,0,0,0.15)] hover:-translate-y-1 hover:border-solid ${borderHoverClass} transition-all duration-300 ease-out cursor-pointer`}
       onClick={() => navigate(`/deployments/${dep.suffix}`)}
     >
       <div
@@ -150,11 +157,22 @@ function EmptyLaunchpadCard({
   const bgClass = !hasSubscription ? 'bg-gray-400' : (isAlreadyUsed ? 'bg-gray-300' : headerBg);
   const hoverClass = !hasSubscription ? 'hover:bg-slate-700 hover:text-white hover:border-slate-700' : (isAlreadyUsed ? '' : plusHover);
 
+  let borderHoverClass = 'hover:border-blue-400';
+  if (!hasSubscription) {
+    borderHoverClass = 'hover:border-gray-400';
+  } else if (isAlreadyUsed) {
+    borderHoverClass = 'hover:border-gray-300';
+  } else {
+    if (plan === 'Free') borderHoverClass = 'hover:border-gray-400';
+    if (plan === 'Essential') borderHoverClass = 'hover:border-blue-400';
+    if (plan === 'Standard') borderHoverClass = 'hover:border-purple-400';
+    if (plan === 'Premium') borderHoverClass = 'hover:border-pink-400';
+  }
+
   return (
     <div
-      className={`flex flex-col border border-dashed ${
-        !hasSubscription ? 'border-gray-300' : (isAlreadyUsed ? 'border-gray-200' : 'border-gray-300')
-      } bg-white hover:shadow-sm cursor-pointer transition-all`}
+      className={`flex flex-col border border-dashed ${!hasSubscription ? 'border-gray-300' : (isAlreadyUsed ? 'border-gray-200' : 'border-gray-300')
+        } bg-white hover:shadow-[0_12px_24px_-10px_rgba(0,0,0,0.15)] hover:-translate-y-1 hover:border-solid ${borderHoverClass} cursor-pointer transition-all duration-300 ease-out`}
       onClick={onClick}
     >
       <div
