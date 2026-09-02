@@ -125,6 +125,84 @@ describe('api-client', () => {
     await expect(api.login('a@b.com', 'pass')).rejects.toThrow(/no token received/i);
   });
 
+  describe('login', () => {
+    it('sends captchaToken in payload when provided', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(
+        makeResponse(200, JSON.stringify({ token: 'jwt-token' }), 'text/plain'),
+      );
+
+      await api.login('test@example.com', 'password', 'valid-token');
+
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/login');
+      expect(options.method).toBe('POST');
+      expect(JSON.parse(options.body as string)).toEqual({
+        email: 'test@example.com',
+        password: 'password',
+        'g-recaptcha-response': 'valid-token',
+      });
+    });
+
+    it('sends "empty" for captchaToken when omitted', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(
+        makeResponse(200, JSON.stringify({ token: 'jwt-token' }), 'text/plain'),
+      );
+
+      await api.login('test@example.com', 'password');
+
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/login');
+      expect(options.method).toBe('POST');
+      expect(JSON.parse(options.body as string)).toEqual({
+        email: 'test@example.com',
+        password: 'password',
+        'g-recaptcha-response': 'empty',
+      });
+    });
+  });
+
+  describe('signup', () => {
+    it('sends captchaToken in payload when provided', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(
+        makeResponse(200, JSON.stringify({ token: 'jwt-token' }), 'text/plain'),
+      );
+
+      await api.signup('test@example.com', 'password', 'testuser', 'valid-token');
+
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/signup');
+      expect(options.method).toBe('POST');
+      expect(JSON.parse(options.body as string)).toEqual({
+        email: 'test@example.com',
+        password: 'password',
+        alias: 'testuser',
+        'g-recaptcha-response': 'valid-token',
+      });
+    });
+
+    it('sends "empty" for captchaToken when omitted', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(
+        makeResponse(200, JSON.stringify({ token: 'jwt-token' }), 'text/plain'),
+      );
+
+      await api.signup('test@example.com', 'password', 'testuser');
+
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/signup');
+      expect(options.method).toBe('POST');
+      expect(JSON.parse(options.body as string)).toEqual({
+        email: 'test@example.com',
+        password: 'password',
+        alias: 'testuser',
+        'g-recaptcha-response': 'empty',
+      });
+    });
+  });
+
   describe('call', () => {
     it('uses GET and correct path when args are empty', async () => {
       vi.stubEnv('VITE_FAAS_URL', 'https://api.metacall.io');

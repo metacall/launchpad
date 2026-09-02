@@ -9,8 +9,8 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, alias: string) => Promise<void>;
+  login: (email: string, password: string, captchaToken?: string) => Promise<void>;
+  signup: (email: string, password: string, alias: string, captchaToken?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -29,19 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loading = false;
 
-  const login = useCallback(async (email: string, password: string) => {
-    const token = await api.login(email, password);
+  const login = useCallback(async (email: string, password: string, captchaToken?: string) => {
+    const token = await api.login(email, password, captchaToken);
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(EMAIL_KEY, email);
     setUser({ email });
   }, []);
 
-  const signup = useCallback(async (email: string, password: string, alias: string) => {
-    const token = await api.signup(email, password, alias);
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(EMAIL_KEY, email);
-    setUser({ email });
-  }, []);
+  const signup = useCallback(
+    async (email: string, password: string, alias: string, captchaToken?: string) => {
+      const token = await api.signup(email, password, alias, captchaToken);
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(EMAIL_KEY, email);
+      setUser({ email });
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);

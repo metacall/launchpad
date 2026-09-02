@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, X } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 
 export default function LoginPage() {
@@ -8,6 +9,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string>('');
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +20,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, captchaToken);
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
@@ -113,6 +116,12 @@ export default function LoginPage() {
                 </button>
                 <span className="text-gray-400">|</span>
                 <span>{error}</span>
+              </div>
+            )}
+
+            {siteKey && (
+              <div className="mt-8 flex justify-center">
+                <Turnstile siteKey={siteKey} onSuccess={token => setCaptchaToken(token)} />
               </div>
             )}
 
