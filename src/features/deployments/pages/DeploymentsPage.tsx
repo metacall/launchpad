@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Plus, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useDeployments } from '@/features/deployments/hooks/useDeployments';
 import { api } from '@/lib/api-client';
 import { DeploymentTable } from '@/features/deployments/components/DeploymentTable';
@@ -26,9 +27,11 @@ export default function DeploymentsPage() {
     setDeleteError(null);
     try {
       await api.deployDelete(dep.prefix, dep.suffix, dep.version ?? 'v1');
+      toast.success('Deployment deleted successfully!');
       setPending(null);
       refetch();
     } catch {
+      toast.error('Delete failed, check server connection.');
       setDeleteError('Delete failed, check server connection.');
     } finally {
       setDeleting(false);

@@ -4,6 +4,7 @@ import { useDeployments } from '@/features/deployments/hooks/useDeployments';
 import { api } from '@/lib/api-client';
 import type { Deployment } from '@/shared/types';
 import { AlertTriangle, Plus, RefreshCw, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
 
 import { DeploymentTable } from '@/features/deployments/components/DeploymentTable';
@@ -304,10 +305,13 @@ export default function DashboardPage() {
         pendingDelete.suffix,
         pendingDelete.version ?? 'v1',
       );
+      toast.success('Deployment deleted successfully!');
       setPending(null);
       refetch();
     } catch (err: unknown) {
-      setDeleteError('Failed to delete deployment: ' + ((err as Error).message ?? 'Unknown error'));
+      const msg = 'Failed to delete deployment: ' + ((err as Error).message ?? 'Unknown error');
+      toast.error(msg);
+      setDeleteError(msg);
       setPending(null);
     } finally {
       setDeleting(false);

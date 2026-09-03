@@ -14,6 +14,7 @@ import {
   EyeOff,
   FolderGit2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import type { Deployment } from '@/shared/types';
 import { Spinner } from '@/shared/ui/Spinner';
@@ -184,12 +185,14 @@ export default function DeployRepositoryPage() {
 
   const handleDeployReady = useCallback(
     (deployment: { suffix: string }) => {
+      toast.success('Repository deployed successfully!');
       navigate(`/deployments/${deployment.suffix}`, { replace: true });
     },
     [navigate],
   );
 
   const handleDeployFailed = useCallback((message: string) => {
+    toast.error(`Deploy failed: ${message}`);
     setDeployError(message);
     setDeployTarget(null);
   }, []);
