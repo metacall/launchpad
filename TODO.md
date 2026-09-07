@@ -13,10 +13,10 @@
 
 ## API & Protocol Client Architecture
 
-- [ ] **Fix `BASE_URL` resolution fallback (`api-client.ts:68`)**
-  - [ ] Check `localStorage.getItem('faas_url')` and `import.meta.env.VITE_FAAS_URL` before `window.location.origin`
-  - [ ] Ensure default dev fallback points to `http://localhost:9000`
-  - [ ] Test API client initialization in both dev (`vite`) and prod build modes
+- [x] **Fix `BASE_URL` resolution fallback (`api-client.ts:68`)**
+  - [x] Check `localStorage.getItem('faas_url')` and `import.meta.env.VITE_FAAS_URL` before `window.location.origin`
+  - [x] Ensure default dev fallback points to `http://localhost:9000`
+  - [x] Test API client initialization in both dev (`vite`) and prod build modes
 
 - [ ] **Refactor `api.logs()` to use `@metacall/protocol` SDK (`api-client.ts:295`)**
   - [ ] Replace raw `fetch` with `getProtocol().logs()`

@@ -4,6 +4,7 @@ export const APP_VERSION = '0.1.0';
 
 export const LS_TOKEN_KEY = 'faas_token' as const;
 export const LS_EMAIL_KEY = 'faas_user_email' as const;
+export const LS_FAAS_URL_KEY = 'faas_url' as const;
 
 export const ROUTES = {
   HOME: '/',

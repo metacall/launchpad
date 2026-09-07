@@ -256,4 +256,31 @@ describe('api-client', () => {
       expect(url).toBe('https://api.metacall.io/josead/ramda/v1/call/indexBy');
     });
   });
+
+  describe('getBaseUrl', () => {
+    it('defaults to http://localhost:9000 when no custom url or env is set', async () => {
+      vi.stubEnv('VITE_FAAS_URL', '');
+      const { getBaseUrl } = await import('@/lib/api-client');
+      expect(getBaseUrl()).toBe('http://localhost:9000');
+    });
+
+    it('uses localStorage faas_url when set', async () => {
+      localStorage.setItem('faas_url', 'http://custom-faas.local:9000');
+      const { getBaseUrl } = await import('@/lib/api-client');
+      expect(getBaseUrl()).toBe('http://custom-faas.local:9000');
+    });
+
+    it('uses VITE_FAAS_URL when set and no localStorage faas_url exists', async () => {
+      vi.stubEnv('VITE_FAAS_URL', 'https://api.metacall.io');
+      const { getBaseUrl } = await import('@/lib/api-client');
+      expect(getBaseUrl()).toBe('https://api.metacall.io');
+    });
+
+    it('prioritizes localStorage over VITE_FAAS_URL', async () => {
+      localStorage.setItem('faas_url', 'http://custom-override:9000');
+      vi.stubEnv('VITE_FAAS_URL', 'https://api.metacall.io');
+      const { getBaseUrl } = await import('@/lib/api-client');
+      expect(getBaseUrl()).toBe('http://custom-override:9000');
+    });
+  });
 });

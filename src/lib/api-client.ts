@@ -17,7 +17,7 @@ import type { API, Resource, SubscriptionDeploy } from '@metacall/protocol';
 import type { Deployment, MetaCallJSON, Plans } from '@/shared/types';
 import { readMockSubscriptions } from '@/shared/lib/plan';
 
-import { LS_TOKEN_KEY } from '@/shared/constants';
+import { LS_TOKEN_KEY, LS_FAAS_URL_KEY } from '@/shared/constants';
 import { env } from '@/app/config/env';
 
 const TOKEN_KEY = LS_TOKEN_KEY;
@@ -53,17 +53,27 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   return res;
 }
 
-const BASE_URL =
-  typeof window !== 'undefined'
-    ? window.location.origin
-    : ((import.meta.env.VITE_FAAS_URL as string | undefined) ?? 'https://dashboard.metacall.io');
+export function getBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const customUrl = localStorage.getItem(LS_FAAS_URL_KEY);
+    if (customUrl) return customUrl;
+  }
+  const envUrl = import.meta.env.VITE_FAAS_URL as string | undefined;
+  if (envUrl) return envUrl;
+  if (typeof window !== 'undefined' && window.location.origin.includes('dashboard.metacall.io')) {
+    return 'https://api.metacall.io';
+  }
+  return 'http://localhost:9000';
+}
+
+export const BASE_URL = getBaseUrl();
 
 function getToken(): string {
   return localStorage.getItem(TOKEN_KEY) ?? (import.meta.env.VITE_FAAS_TOKEN as string) ?? '';
 }
 
 function getProtocol(): API {
-  return Protocol(getToken(), BASE_URL);
+  return Protocol(getToken(), getBaseUrl());
 }
 
 export class ApiError extends Error {
@@ -167,7 +177,7 @@ export const api = {
     try {
       let realDeploys: SubscriptionDeploy[] = [];
       try {
-        const response = await fetch(`${BASE_URL}/api/billing/list-subscriptions-deploys`, {
+        const response = await fetch(`${getBaseUrl()}/api/billing/list-subscriptions-deploys`, {
           headers: {
             Authorization: `jwt ${getToken()}`,
           },
@@ -279,7 +289,7 @@ export const api = {
       const logType = type === 'job' ? LogType.Job : LogType.Deploy;
       const container = type === 'deploy' ? 'deploy' : '';
 
-      const response = await fetch(`${BASE_URL}/api/deploy/logs`, {
+      const response = await fetch(`${getBaseUrl()}/api/deploy/logs`, {
         method: 'POST',
         headers: {
           Authorization: `jwt ${getToken()}`,
@@ -378,12 +388,13 @@ export const api = {
 
   login: async (email: string, password: string, captchaToken?: string): Promise<string> => {
     try {
-      const res = await authFetch(`${BASE_URL}/login`, {
+      const baseUrl = getBaseUrl();
+      const res = await authFetch(`${baseUrl}/login`, {
         method: 'POST',
         headers: {
           Accept: 'application/json, text/plain, */*',
-          Host: new URL(BASE_URL).host,
-          Origin: BASE_URL,
+          Host: new URL(baseUrl).host,
+          Origin: baseUrl,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password, 'g-recaptcha-response': captchaToken || 'empty' }),
@@ -421,12 +432,13 @@ export const api = {
     captchaToken?: string,
   ): Promise<string> => {
     try {
-      const res = await authFetch(`${BASE_URL}/signup`, {
+      const baseUrl = getBaseUrl();
+      const res = await authFetch(`${baseUrl}/signup`, {
         method: 'POST',
         headers: {
           Accept: 'application/json, text/plain, */*',
-          Host: new URL(BASE_URL).host,
-          Origin: BASE_URL,
+          Host: new URL(baseUrl).host,
+          Origin: baseUrl,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
