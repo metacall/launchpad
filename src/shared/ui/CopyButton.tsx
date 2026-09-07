@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CopyButtonProps {
   text: string;
@@ -24,9 +25,10 @@ export function CopyButton({ text }: CopyButtonProps) {
         document.body.removeChild(el);
       }
       setCopied(true);
+      toast.success('Copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // clipboard unavailable — fail silently
+      toast.error('Failed to copy to clipboard');
     }
   };
 

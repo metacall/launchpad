@@ -10,6 +10,7 @@ import { FunctionTester } from '@/features/deployments/components/FunctionTester
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
 import { getPlanLabel, resolveDeploymentPlan } from '@/shared/lib/plan';
+import { toast } from 'sonner';
 
 // Helper components
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -78,9 +79,12 @@ export default function DeploymentDetailPage() {
     setDeleting(true);
     try {
       await api.deployDelete(deployment.prefix, deployment.suffix, deployment.version);
+      toast.success('Deployment deleted successfully!');
       navigate('/');
     } catch (err: unknown) {
-      setError('Failed to delete deployment: ' + ((err as Error).message ?? 'Unknown error'));
+      const msg = 'Failed to delete deployment: ' + ((err as Error).message ?? 'Unknown error');
+      toast.error(msg);
+      setError(msg);
       setShowDeleteConfirm(false);
     } finally {
       setDeleting(false);
