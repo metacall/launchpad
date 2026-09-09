@@ -16,6 +16,7 @@ import {
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { api } from '@/lib/api-client';
 import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
+import { normalizePlan } from '@/shared/lib/plan';
 import { downloadInvoicePDF, formatInvoiceNumber } from '../utils/invoice';
 import type { Deployment } from '@/shared/types';
 import type { SubscriptionDeploy } from '@metacall/protocol';
