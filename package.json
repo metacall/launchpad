@@ -5,7 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "npm run validate",
+    "dev:fast": "vite",
+    "start": "npm run validate && vite",
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm run unit",
+    "check": "npm run validate",
     "build": "tsc -b && vite build",
+    "prebuild": "npm run validate",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
