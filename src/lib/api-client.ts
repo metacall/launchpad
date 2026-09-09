@@ -165,19 +165,20 @@ export const api = {
   /** List subscription deploys directly from Protocol. */
   listSubscriptionsDeploys: async (): Promise<SubscriptionDeploy[]> => {
     try {
+      let protocolDeploys: unknown = null;
       try {
-        const deploys = await getProtocol().listSubscriptionsDeploys();
+        protocolDeploys = await getProtocol().listSubscriptionsDeploys();
         if (
-          Array.isArray(deploys) &&
-          deploys.length > 0 &&
-          typeof deploys[0] === 'object' &&
-          deploys[0] !== null &&
-          'plan' in deploys[0]
+          Array.isArray(protocolDeploys) &&
+          protocolDeploys.length > 0 &&
+          typeof protocolDeploys[0] === 'object' &&
+          protocolDeploys[0] !== null &&
+          'plan' in protocolDeploys[0]
         ) {
-          return deploys;
+          return protocolDeploys as SubscriptionDeploy[];
         }
       } catch {
-        // Fallback to /api/billing/list-subscriptions-deploys if listSubscriptions returned string array
+        // Fallback
       }
 
       const response = await fetch(`${getBaseUrl()}/api/billing/list-subscriptions-deploys`, {
@@ -187,8 +188,23 @@ export const api = {
       });
       if (response.ok) {
         const data = (await response.json()) as unknown;
-        if (Array.isArray(data)) return data as SubscriptionDeploy[];
+        if (Array.isArray(data) && data.length > 0) return data as SubscriptionDeploy[];
       }
+
+      if (Array.isArray(protocolDeploys) && protocolDeploys.length > 0) {
+        return (protocolDeploys as unknown[]).map((item, index) => {
+          if (typeof item === 'string') {
+            return {
+              id: `sub_${item.toLowerCase()}_0${index + 1}`,
+              plan: item as SubscriptionDeploy['plan'],
+              deploy: '',
+              date: 1772479766,
+            };
+          }
+          return item as SubscriptionDeploy;
+        });
+      }
+
       return [];
     } catch (err) {
       mapError(err);
