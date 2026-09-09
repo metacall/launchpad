@@ -320,7 +320,7 @@ export default function DashboardPage() {
       d =>
         resolveDeploymentPlan(d) === planId ||
         normalizePlan((d as unknown as Record<string, unknown>).plan as string | undefined) ===
-        planId,
+          planId,
     );
     return { planId, dep: dep ?? null };
   });
