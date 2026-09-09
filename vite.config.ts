@@ -18,25 +18,21 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // All /api/* routes → production MetaCall (keeps /api prefix, no rewrite)
       '/api': {
-        target: 'https://dashboard.metacall.io',
+        target: process.env.VITE_FAAS_URL || 'http://localhost:9000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
       '/login': {
-        target: 'https://dashboard.metacall.io',
+        target: process.env.VITE_AUTH_URL || 'https://dashboard.metacall.io',
         changeOrigin: true,
         secure: true,
-        // Bypass for browser page navigations (GET with text/html Accept).
-        // These should be served by the SPA (index.html), not the API proxy.
-        // Only POST requests (actual auth calls) reach the backend.
         bypass(req) {
           if (req.headers['accept']?.includes('text/html')) return '/index.html';
         },
       },
       '/signup': {
-        target: 'https://dashboard.metacall.io',
+        target: process.env.VITE_AUTH_URL || 'https://dashboard.metacall.io',
         changeOrigin: true,
         secure: true,
         bypass(req) {
@@ -44,9 +40,9 @@ export default defineConfig({
         },
       },
       '/validate': {
-        target: 'https://dashboard.metacall.io',
+        target: process.env.VITE_FAAS_URL || 'http://localhost:9000',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

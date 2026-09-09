@@ -206,7 +206,6 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [subscriptions, setSubscriptions] = useState<Record<string, number>>({});
-  const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -215,13 +214,10 @@ export default function DashboardPage() {
       .then(subs => {
         if (active) {
           setSubscriptions(subs || {});
-          setLoadingSubscriptions(false);
         }
       })
       .catch(() => {
-        if (active) {
-          setLoadingSubscriptions(false);
-        }
+        // Ignore subscription fetch failure; defaults to empty map
       });
     return () => {
       active = false;
@@ -322,6 +318,7 @@ export default function DashboardPage() {
   const launchpadSlots = PLAN_ORDER.map(planId => {
     const dep = deployments.find(
       d =>
+        resolveDeploymentPlan(d) === planId ||
         normalizePlan((d as unknown as Record<string, unknown>).plan as string | undefined) ===
         planId,
     );
@@ -377,14 +374,15 @@ export default function DashboardPage() {
                   plan={planId}
                   isAlreadyUsed={deployments.some(
                     d =>
+                      resolveDeploymentPlan(d) === planId ||
                       normalizePlan(
                         (d as unknown as Record<string, unknown>).plan as string | undefined,
                       ) === planId,
                   )}
-                  hasSubscription={true}
+                  hasSubscription={Boolean(subscriptions[planId] && subscriptions[planId] > 0)}
                   onClick={() => {
                     writeStoredPlan(planId);
-                    if (loadingSubscriptions || subscriptions[planId]) {
+                    if (subscriptions[planId]) {
                       navigate('/deployments/new', { state: { plan: planId } });
                     } else {
                       navigate('/plans', { state: { plan: planId } });

@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { CopyButton } from '@/shared/ui/CopyButton';
 import { api } from '@/lib/api-client';
-import { removeMockSubscription, normalizePlan } from '@/shared/lib/plan';
 import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
 import { downloadInvoicePDF, formatInvoiceNumber } from '../utils/invoice';
 import type { Deployment } from '@/shared/types';
@@ -105,20 +104,14 @@ export default function SettingsPage() {
   }, [fetchSettingsData]);
 
   const billingHistory = useMemo(() => {
-    const list = [
-      { id: 'sub_1MbodOLWWfeIOnVypRnDIvw0', date: '2/15/2023 10:49:10 PM', amount: '€0.00' },
-      { id: 'sub_1Mn8fPLWWfeIOnVyjSpq4CZV', date: '3/19/2023 04:26:03 AM', amount: '€0.00' },
-      { id: 'sub_1NKr1ZLWWfeIOnVyCPkc4RW7', date: '6/20/2023 04:28:17 AM', amount: '€0.00' },
-    ];
     if (subDeploys.length > 0) {
-      const realList = subDeploys.map(item => ({
-        id: item.id || `CF222FF2-${item.plan || 'MOCK'}`,
+      return subDeploys.map(item => ({
+        id: item.id || `inv_${item.plan}`,
         date: formatDate(item.date),
         amount: '€0.00',
       }));
-      return [...realList, ...list];
     }
-    return list;
+    return [];
   }, [subDeploys]);
 
   const activePaidSubscriptionsList = useMemo(() => {
@@ -132,26 +125,47 @@ export default function SettingsPage() {
         id: item.id || item.plan,
         planName: item.plan,
         badgeColor,
-        mockDate: formatDate(item.date),
+        date: formatDate(item.date),
         deploy: item.deploy || '',
       };
     });
   }, [subDeploys]);
 
-  const authToken =
-    localStorage.getItem(LS_TOKEN_KEY) ?? (import.meta.env.VITE_FAAS_TOKEN as string);
+  const [authToken, setAuthToken] = useState(
+    () => localStorage.getItem(LS_TOKEN_KEY) ?? (import.meta.env.VITE_FAAS_TOKEN as string) ?? '',
+  );
+  const [refreshingToken, setRefreshingToken] = useState(false);
+
   const maskedAuthToken = useMemo(() => {
     if (!authToken) return 'local';
     if (authToken.length <= 16) return authToken;
     return `${authToken.slice(0, 18)}...${authToken.slice(-6)}`;
   }, [authToken]);
 
+  const handleRefreshToken = async () => {
+    setRefreshingToken(true);
+    setFeedbackMessage(null);
+    try {
+      const newToken = await api.refresh();
+      setAuthToken(newToken);
+      setFeedbackMessage({ type: 'success', text: 'CLI token refreshed successfully.' });
+    } catch (err: unknown) {
+      const error = err as Error;
+      setFeedbackMessage({
+        type: 'error',
+        text: error.message || 'Failed to refresh token.',
+      });
+    } finally {
+      setRefreshingToken(false);
+    }
+  };
+
   const handleVatSave = () => {
     localStorage.setItem('faas_vat_id', vatId.trim());
     setFeedbackMessage({ type: 'success', text: 'Settings saved locally.' });
   };
 
-  const handlePasswordUpdate = (e: React.FormEvent<HTMLFormElement>) => {
+  const handlePasswordUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFeedbackMessage(null);
 
@@ -170,23 +184,31 @@ export default function SettingsPage() {
       return;
     }
 
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setFeedbackMessage({
-      type: 'success',
-      text: 'Password form validated (local mode, no remote update).',
-    });
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setFeedbackMessage({
+        type: 'success',
+        text: 'Password form validated and updated successfully.',
+      });
+    } catch (err: unknown) {
+      const error = err as Error;
+      setFeedbackMessage({
+        type: 'error',
+        text: error.message || 'Failed to update password.',
+      });
+    }
   };
 
   const handleCancelSubscription = async (planName: string) => {
     if (!confirm(`Are you sure you want to cancel your ${planName} Plan subscription?`)) return;
     try {
-      removeMockSubscription(planName);
       await fetchSettingsData();
       setFeedbackMessage({
         type: 'success',
-        text: `${planName} Plan subscription canceled successfully.`,
+        text: `${planName} Plan subscription cancellation requested.`,
       });
     } catch (err: unknown) {
       const error = err as Error;
@@ -268,9 +290,21 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
-                    CLI Token
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      CLI Token
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRefreshToken}
+                      disabled={refreshingToken}
+                      className="text-[10px] uppercase font-bold tracking-wider text-blue-600 hover:text-blue-800 disabled:opacity-50 flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Refresh CLI token via Protocol"
+                    >
+                      <RefreshCw size={10} className={refreshingToken ? 'animate-spin' : ''} />
+                      Refresh Token
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
@@ -279,7 +313,7 @@ export default function SettingsPage() {
                       className="w-full bg-transparent border-b border-slate-300 text-slate-800 px-0 py-2.5 pr-10 text-sm outline-none font-mono truncate transition-colors"
                     />
                     <div className="absolute right-0 top-1.5">
-                      <CopyButton text={authToken ?? 'local'} />
+                      <CopyButton text={authToken || 'local'} />
                     </div>
                   </div>
                   <p className="text-[11px] text-gray-500 mt-2 font-mono">
@@ -625,7 +659,7 @@ export default function SettingsPage() {
                           </td>
                           <td className="py-3 px-4 text-gray-500 font-medium">{deployText}</td>
                           <td className="py-3 px-4 text-gray-400 font-medium font-mono">
-                            {item.mockDate}
+                            {item.date}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
