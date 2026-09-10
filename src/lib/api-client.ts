@@ -439,10 +439,7 @@ export const api = {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
-        throw new ApiError(
-          errText || res.statusText || `Login failed (${res.status})`,
-          res.status,
-        );
+        throw new ApiError(errText || res.statusText || `Login failed (${res.status})`, res.status);
       }
 
       const token = await res.text();
