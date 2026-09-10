@@ -438,7 +438,11 @@ export const api = {
       });
 
       if (!res.ok) {
-        throw new Error(res.statusText);
+        const errText = await res.text().catch(() => '');
+        throw new ApiError(
+          errText || res.statusText || `Login failed (${res.status})`,
+          res.status,
+        );
       }
 
       const token = await res.text();
@@ -496,7 +500,11 @@ export const api = {
       });
 
       if (!res.ok) {
-        throw new Error(res.statusText);
+        const errText = await res.text().catch(() => '');
+        throw new ApiError(
+          errText || res.statusText || `Signup failed (${res.status})`,
+          res.status,
+        );
       }
 
       const token = await res.text();
