@@ -283,4 +283,83 @@ describe('api-client', () => {
       expect(getBaseUrl()).toBe('http://custom-override:9000');
     });
   });
+
+  describe('billing subscriptions', () => {
+    it('listSubscriptions returns plan count mapping from protocol', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(makeResponse(200, ['Essential', 'Standard', 'Premium']));
+
+      const res = await api.listSubscriptions();
+      expect(res).toEqual({
+        Essential: 1,
+        Standard: 1,
+        Premium: 1,
+      });
+    });
+
+    it('listSubscriptionsDeploys returns active deploy objects when available', async () => {
+      const api = await loadApi();
+      const mockDeploys = [
+        { id: 'sub_essential_01', plan: 'Essential', deploy: 'app1', date: 1772479766 },
+        { id: 'sub_premium_03', plan: 'Premium', deploy: '', date: 1772479766 },
+      ];
+      // First call is protocol.listSubscriptionsDeploys() -> hits /api/billing/list-subscriptions
+      mockFetch.mockResolvedValueOnce(makeResponse(200, ['Essential', 'Premium']));
+      // Second call is fallback fetch -> hits /api/billing/list-subscriptions-deploys
+      mockFetch.mockResolvedValueOnce(makeResponse(200, mockDeploys));
+
+      const res = await api.listSubscriptionsDeploys();
+      expect(res).toEqual(mockDeploys);
+    });
+
+    it('listSubscriptionsDeploys maps string array from protocol when fallback is empty', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(makeResponse(200, ['Essential', 'Standard']));
+      mockFetch.mockResolvedValueOnce(makeResponse(404, []));
+
+      const res = await api.listSubscriptionsDeploys();
+      expect(res).toHaveLength(2);
+      expect(res[0]).toMatchObject({
+        id: 'sub_essential_01',
+        plan: 'Essential',
+        deploy: '',
+      });
+      expect(res[1]).toMatchObject({
+        id: 'sub_standard_02',
+        plan: 'Standard',
+        deploy: '',
+      });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('posts to change-password and returns true on success', async () => {
+      localStorage.setItem('faas_token', 'my-token');
+      const api = await loadApi();
+
+      mockFetch.mockResolvedValueOnce(makeResponse(200, { message: 'ok' }));
+      const res = await api.changePassword('oldpass123', 'newpass123');
+
+      expect(res).toBe(true);
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/api/account/change-password');
+      expect(options.method).toBe('POST');
+      expect(options.body).toBe(
+        JSON.stringify({ currentPassword: 'oldpass123', newPassword: 'newpass123' }),
+      );
+    });
+  });
+
+  describe('refresh', () => {
+    it('refreshes token, updates localStorage, and returns new token', async () => {
+      localStorage.setItem('faas_token', 'old-token');
+      const api = await loadApi();
+
+      mockFetch.mockResolvedValueOnce(makeResponse(200, 'refreshed-new-token', 'text/plain'));
+      const newToken = await api.refresh();
+
+      expect(newToken).toBe('refreshed-new-token');
+      expect(localStorage.getItem('faas_token')).toBe('refreshed-new-token');
+    });
+  });
 });
