@@ -20,6 +20,8 @@ permissions:
 jobs:
   ci:
     name: Lint · Format · Types · Tests · Build
+    # Nothing gets published unless the cli also passes on Node 18
+    needs: cli-node18
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -86,3 +88,27 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance
+
+  cli-node18:
+    name: CLI tests on Node 18
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # MetaCall bundles Node 18 and runs the package with it, and some bugs
+          # only show up there
+          node-version: '18.19'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+
+      - run: npm ci
+        working-directory: cli
+
+      - run: npm test
+        working-directory: cli
