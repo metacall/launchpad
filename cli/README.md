@@ -5,6 +5,8 @@ The [MetaCall Launchpad](https://github.com/metacall/launchpad) dashboard for a 
 
 It serves the built dashboard on `http://localhost:9001` and tells it to run in local mode
 (through `/__launchpad/config`), so you can see and manage the apps deployed to your local FaaS.
+The dashboard's API and function calls go to the same origin, and Launchpad forwards them
+unchanged to FaaS on `http://localhost:9000`.
 
 ## Usage
 

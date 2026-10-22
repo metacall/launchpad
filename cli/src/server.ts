@@ -2,21 +2,28 @@
  * server.ts
  *
  * Express app behind `metacall launchpad`. Serves the built dashboard and the
- * runtime config the UI reads at startup (see src/app/config/runtime.ts).
+ * runtime config the UI reads at startup (see src/app/config/runtime.ts), and
+ * forwards the dashboard's API requests to FaaS.
  */
 
-import express, { Express } from 'express';
+import express, { Express, RequestHandler } from 'express';
 import { join } from 'path';
+import { forward } from './proxy';
 
 export const RUNTIME_CONFIG_PATH = '/__launchpad/config';
 
 export interface ServerOptions {
   port: number;
   publicDir?: string;
+  faasUrl?: string;
 }
 
 /** Create the app. `publicDir` defaults to the dashboard bundled in the package. */
-export function createApp({ port, publicDir = join(__dirname, 'public') }: ServerOptions): Express {
+export function createApp({
+  port,
+  publicDir = join(__dirname, 'public'),
+  faasUrl = 'http://localhost:9000',
+}: ServerOptions): Express {
   const app = express();
   app.disable('x-powered-by');
 
@@ -26,6 +33,15 @@ export function createApp({ port, publicDir = join(__dirname, 'public') }: Serve
     res.set('Cache-Control', 'no-store');
     res.json({ faasUrl: `http://localhost:${port}`, token: 'local', mode: 'local' });
   });
+
+  // FaaS routes at their real paths, before the dashboard, so the UI talks to
+  // FaaS through this origin. No dashboard route has the function call shape.
+  // FaaS's /static/ route isn't forwarded: the dashboard doesn't use it, and it
+  // would serve deployed files (HTML too) from the dashboard's origin.
+  const toFaas: RequestHandler = (req, res) => forward(req, res, faasUrl);
+  app.use('/api', toFaas);
+  app.all('/validate', toFaas);
+  app.all('/:prefix/:suffix/:version/call/*', toFaas);
 
   app.use(express.static(publicDir));
 
