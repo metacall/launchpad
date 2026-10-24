@@ -17,6 +17,16 @@ function stripAnsi(value: string): string {
     .replace(/\[[0-9;]*m/g, '');
 }
 
+function isTerminalStatus(status: unknown): boolean {
+  return (
+    status === 'ready' ||
+    status === 'failed' ||
+    status === 'error' ||
+    status === 'fail' ||
+    status === 'stopped'
+  );
+}
+
 /**
  * Infer a UI log level from the stored [LEVEL] tag or message text.
  * Handles both the new format  "<ISO> [LEVEL] - <name> | <msg>"
@@ -87,9 +97,20 @@ export function useLogs(suffix: string, prefix: string, pollIntervalMs = 5000): 
 
     const controller = new AbortController();
     let timerId: ReturnType<typeof setTimeout> | null = null;
+    let fetchInFlight = false;
+    let terminal = false;
+
+    const clearTimer = () => {
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    };
 
     const scheduleNext = (failed: boolean) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || terminal) return;
+
+      clearTimer();
 
       if (failed) {
         // Cap at 5 doublings.
@@ -103,54 +124,90 @@ export function useLogs(suffix: string, prefix: string, pollIntervalMs = 5000): 
         : pollIntervalMs;
 
       timerId = setTimeout(() => {
+        timerId = null;
         if (controller.signal.aborted) return;
         // Don't fetch while tab is hidden; visibilitychange will kick it off
-        if (!document.hidden) void doFetch();
+        if (!document.hidden) void fetchAndFinish();
       }, delay);
     };
 
     const doFetch = async () => {
+      if (controller.signal.aborted || terminal) return;
+
+      let failed = false;
+      let failureMessage: string | null = null;
+
       try {
         const raw = await api.logs(suffix, prefix, 'deploy', controller.signal);
         if (controller.signal.aborted) return;
-        setError(null);
         setLogs(parseLogs(raw));
-        scheduleNext(false);
       } catch (err) {
         if (isAbortError(err)) return;
         if (controller.signal.aborted) return;
-        // Surface error to the caller and widen retry interval
-        const msg =
+        failed = true;
+        failureMessage =
           isApiError(err) || err instanceof Error
             ? (err.message ?? 'Failed to load logs.')
             : 'Failed to load logs.';
-        setError(msg);
-        scheduleNext(true);
+      }
+
+      if (controller.signal.aborted) return;
+
+      try {
+        const deployment = await api.inspectByName(suffix, controller.signal);
+        if (controller.signal.aborted) return;
+
+        if (isTerminalStatus(deployment.status)) {
+          terminal = true;
+          clearTimer();
+          setError(failureMessage);
+          return;
+        }
+      } catch (err) {
+        if (isAbortError(err)) return;
+        if (controller.signal.aborted) return;
+        failed = true;
+        failureMessage ??=
+          isApiError(err) || err instanceof Error
+            ? (err.message ?? 'Failed to check deployment status.')
+            : 'Failed to check deployment status.';
+      }
+
+      if (controller.signal.aborted) return;
+      setError(failureMessage);
+      scheduleNext(failed);
+    };
+
+    const fetchAndFinish = async () => {
+      if (controller.signal.aborted || terminal || fetchInFlight) return;
+      fetchInFlight = true;
+      try {
+        await doFetch();
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          fetchInFlight = false;
+          setLoading(false);
+        }
       }
     };
 
     // Start immediately unless the tab is already hidden
     if (!document.hidden) {
-      void doFetch();
+      void fetchAndFinish();
     }
 
     // Kick off a fresh fetch when the user returns to the tab
     const onVisible = () => {
       if (!document.hidden && !controller.signal.aborted) {
-        if (timerId !== null) {
-          clearTimeout(timerId);
-          timerId = null;
-        }
-        void doFetch();
+        clearTimer();
+        void fetchAndFinish();
       }
     };
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       controller.abort();
-      if (timerId !== null) clearTimeout(timerId);
+      clearTimer();
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [suffix, prefix, pollIntervalMs, tick]);
