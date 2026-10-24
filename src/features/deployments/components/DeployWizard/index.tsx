@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -14,7 +14,7 @@ import {
   Code2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api } from '@/lib/api-client';
+import { api, isApiError } from '@/lib/api-client';
 import { SVGLoader } from '@/shared/ui/LoadingState';
 import JSZip from 'jszip';
 import type { TreeNode } from './TreeNodeView';
@@ -65,6 +65,41 @@ function buildTree(paths: string[]): TreeNode {
   return root;
 }
 
+function getSafeDeployError(error: unknown, envRows: EnvRow[]): string {
+  if (isApiError(error)) {
+    if (!error.status) {
+      return 'Unable to reach the FaaS server. Check your connection and try again.';
+    }
+    if (error.status === 400 || error.status === 422) {
+      return 'The FaaS server rejected the request. Check the package configuration and try again.';
+    }
+    if (error.status === 401 || error.status === 403) {
+      return 'FaaS authorization failed. Check your access and try again.';
+    }
+    if (error.status === 413) {
+      return 'The package is too large to upload.';
+    }
+    if (error.status >= 500) {
+      return 'The FaaS server encountered an error. Try again shortly.';
+    }
+    return `The FaaS request failed (HTTP ${error.status}). Please try again.`;
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message.split(/\r?\n/, 1)[0]
+      : 'The operation could not be completed.';
+  const secrets = envRows.map(row => row.value).filter(value => value.length > 0);
+  const redacted = secrets.reduce(
+    (safeMessage, secret) => safeMessage.split(secret).join('[redacted]'),
+    message,
+  );
+  return redacted
+    .replace(/\b(jwt|bearer)\s+\S+/gi, '$1 [redacted]')
+    .replace(/\b[A-Z]:\\(?:[^\s\\]+\\)*[^\s\\]*/gi, '[path]')
+    .replace(/\/(?:home|tmp|var|usr|app|workspace|Users)\/[^\s]*/gi, '[path]');
+}
+
 export default function DeployWizardPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,6 +114,7 @@ export default function DeployWizardPage() {
   // Local State
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
+  const submittingRef = useRef(false);
   const [deployTarget, setDeployTarget] = useState<{ suffix: string; startedAt: string } | null>(
     null,
   );
@@ -179,18 +215,21 @@ export default function DeployWizardPage() {
         const zip = await jszip.loadAsync(file!);
         if (!active) return;
         const paths = Object.keys(zip.files);
+        const filePaths = paths.filter(path => !zip.files[path].dir);
+        if (filePaths.length === 0) {
+          setDeployError('The ZIP package does not contain any files.');
+          setLoadingZip(false);
+          return;
+        }
 
         const root = buildTree(paths);
         setTree(root);
 
         // Select all files by default
-        const allFiles = new Set<string>();
-        Object.values(zip.files).forEach(z => {
-          if (!z.dir) allFiles.add(z.name);
-        });
-        setSelectedPaths(allFiles);
-      } catch (error) {
-        if (active) console.error('Failed to parse zip', error);
+        setSelectedPaths(new Set(filePaths));
+        setDeployError('');
+      } catch {
+        if (active) setDeployError('Unable to read this ZIP package. Choose a valid ZIP file.');
       } finally {
         if (active) setLoadingZip(false);
       }
@@ -226,6 +265,7 @@ export default function DeployWizardPage() {
 
   const handleToggle = (path: string, isDirectory: boolean) => {
     const next = new Set(selectedPaths);
+    setDeployError('');
 
     if (isDirectory && tree) {
       const node = findNodeByPath(tree, path);
@@ -248,8 +288,27 @@ export default function DeployWizardPage() {
   };
 
   const handleDeploy = async () => {
-    if (!file) return;
+    if (submittingRef.current || !file) return;
     setDeployError('');
+
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      setDeployError('Choose a valid .zip package before deploying.');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      setDeployError('The ZIP package exceeds the 100 MB upload limit.');
+      return;
+    }
+    if (loadingZip) {
+      setDeployError('Wait for package validation to finish before deploying.');
+      return;
+    }
+    if (selectedPaths.size === 0) {
+      setDeployError('Select at least one file to include in the deployment.');
+      return;
+    }
+
+    submittingRef.current = true;
 
     // Compute deploy name from filename — no API needed yet
     const deployName = file.name
@@ -262,6 +321,7 @@ export default function DeployWizardPage() {
     setDeployTarget({ suffix: deployName, startedAt });
     setDeploying(true);
 
+    let operation: 'package preparation' | 'upload' | 'deployment' = 'package preparation';
     try {
       // Rebuild zip: only include user-selected files, then inject metacall-{i}.json configs
       const jszip = new JSZip();
@@ -278,22 +338,29 @@ export default function DeployWizardPage() {
       const zipBlob = await jszip.generateAsync({ type: 'blob' });
       const deployFile = new File([zipBlob], file.name, { type: 'application/zip' });
 
+      operation = 'upload';
       await api.upload(deployName, deployFile);
 
       const envVars = envRows
         .filter(r => r.name.trim())
         .map(r => ({ name: r.name.trim(), value: r.value }));
 
+      operation = 'deployment';
       const deployment = await api.deploy(deployName, envVars, toDeployPlan(plan), 'Package');
       writeDeploymentPlan(deployment.suffix, plan);
       // Update with real suffix from server (in case it differs from local name)
       setDeployTarget({ suffix: deployment.suffix, startedAt });
     } catch (error) {
-      console.error('Deploy failed', error);
-      const err = error as { response?: { data?: string }; message?: string };
-      setDeployError(err?.response?.data || err?.message || 'Failed to deploy package.');
+      const action =
+        operation === 'upload'
+          ? 'Upload failed'
+          : operation === 'deployment'
+            ? 'Deployment request failed'
+            : 'Package validation failed';
+      setDeployError(`${action}: ${getSafeDeployError(error, envRows)}`);
       setDeployTarget(null);
     } finally {
+      submittingRef.current = false;
       setDeploying(false);
     }
   };
@@ -430,6 +497,24 @@ export default function DeployWizardPage() {
         </div>
 
         {/* 2-Column Content */}
+        {deployError && (
+          <div
+            role="alert"
+            className="mx-4 mt-4 flex items-start gap-2 rounded border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 sm:mx-6"
+          >
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span className="min-w-0 break-words">{deployError}</span>
+            <button
+              type="button"
+              onClick={() => setDeployError('')}
+              className="ml-auto shrink-0 text-red-500 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-red-600"
+              aria-label="Clear error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row min-h-125">
           {/* Left Column: File Tree */}
           <div className="w-full lg:w-1/3 flex flex-col p-4 sm:p-6 border-b lg:border-b-0 lg:border-r border-gray-100 bg-white">
@@ -653,26 +738,13 @@ export default function DeployWizardPage() {
             {/* Footer Action */}
             <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50/80 mt-auto flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="flex-1 w-full">
-                {deployError && (
-                  <div className="w-full max-w-5xl flex items-center gap-2 text-xs text-red-600 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-20">
-                    <button
-                      onClick={() => setDeployError('')}
-                      className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
-                      aria-label="Clear error"
-                    >
-                      <X size={14} />
-                    </button>
-                    <span className="text-gray-400">|</span>
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={14} />
-                      <span>{deployError}</span>
-                    </div>
-                  </div>
-                )}
+                <span className="sr-only" aria-live="polite">
+                  {deployError}
+                </span>
               </div>
               <button
                 onClick={handleDeploy}
-                disabled={deploying}
+                disabled={deploying || loadingZip}
                 className="w-full sm:w-auto px-6 sm:px-8 py-2.5 text-[15px] font-bold text-gray-600 hover:text-white bg-white border border-gray-300 rounded-md hover:bg-gray-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {deploying ? <Loader2 size={16} className="animate-spin" /> : null}
