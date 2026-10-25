@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { networkInterfaces, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
 import { closedUrl, startFakeFaas } from './fake-faas';
@@ -103,6 +103,22 @@ describe('metacall launchpad', { timeout: 10_000 }, () => {
     } finally {
       await faas.close();
     }
+  });
+
+  test('only listens on the loopback address', async t => {
+    const lan = Object.values(networkInterfaces())
+      .flat()
+      .find(address => address?.family === 'IPv4' && !address.internal)?.address;
+    if (!lan) {
+      t.skip('this machine has no network address besides loopback');
+      return;
+    }
+    const port = await freePort();
+    const launchpad = start(['--no-open', '--port', port, '--faas-url', await closedUrl()]);
+    await launchpad.waitFor(/running at/);
+
+    assert.equal((await fetch(`http://127.0.0.1:${port}/__launchpad/config`)).status, 200);
+    await assert.rejects(fetch(`http://${lan}:${port}/__launchpad/config`));
   });
 
   describe(

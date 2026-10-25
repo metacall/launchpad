@@ -4,7 +4,7 @@ import { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
-import { Server } from 'node:http';
+import { OutgoingHttpHeaders, request, Server } from 'node:http';
 import { createApp } from '../server';
 import { FakeFaas, startFakeFaas, stop } from './fake-faas';
 
@@ -153,6 +153,50 @@ describe('launchpad server', () => {
       assert.equal(faas.requests[0].headers['content-type'], 'application/json');
       assert.equal(faas.requests[0].body.toString(), '[3,4]');
     });
+
+    /** A request with any Host or Origin, which fetch() doesn't allow setting. */
+    const send = (path: string, headers: OutgoingHttpHeaders, method = 'GET') =>
+      new Promise<{ status?: number; body: string }>((resolve, reject) => {
+        const req = request(forwardingBase + path, { method, headers }, res => {
+          let body = '';
+          res.setEncoding('utf8').on('data', (data: string) => (body += data));
+          res.on('end', () => resolve({ status: res.statusCode, body }));
+        });
+        req.on('error', reject);
+        req.end();
+      });
+
+    test('forwards requests from the dashboard at localhost or 127.0.0.1', async () => {
+      const { port } = new URL(forwardingBase);
+      for (const host of [`localhost:${port}`, `127.0.0.1:${port}`]) {
+        const res = await send(
+          '/api/deploy/delete',
+          { Host: host, Origin: `http://${host}` },
+          'POST',
+        );
+
+        assert.equal(res.status, 200, host);
+      }
+      assert.equal(faas.requests.length, 2);
+    });
+
+    for (const [name, headers] of [
+      ['another Host (DNS rebinding)', (port: string) => ({ Host: `evil.example:${port}` })],
+      ['another port in Host', () => ({ Host: 'localhost:1' })],
+      ['another Origin (a cross-site form)', () => ({ Origin: 'https://evil.example' })],
+      ['another port in Origin', () => ({ Origin: 'http://localhost:1' })],
+      ['Origin null (a sandboxed page)', () => ({ Origin: 'null' })],
+    ] as const) {
+      test(`refuses to forward a request with ${name}`, async () => {
+        const res = await send('/api/deploy/delete', headers(new URL(forwardingBase).port), 'POST');
+
+        assert.equal(res.status, 403);
+        assert.deepEqual(JSON.parse(res.body), {
+          error: 'Launchpad only forwards requests from its own dashboard',
+        });
+        assert.equal(faas.requests.length, 0);
+      });
+    }
 
     for (const path of [
       '/__launchpad/config',

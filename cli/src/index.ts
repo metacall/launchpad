@@ -24,7 +24,8 @@ if (options.version) {
 }
 
 const { port, faasUrl, open } = options;
-createApp({ port, faasUrl }).listen(port, async () => {
+// Loopback only: FaaS has no login in local mode, so nothing else should reach it
+createApp({ port, faasUrl }).listen(port, '127.0.0.1', async () => {
   const url = `http://localhost:${port}`;
   console.log(`MetaCall Launchpad is running at ${url}`);
   if (open) openBrowser(url);
