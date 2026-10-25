@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, test } from 'node:test';
+import { after, afterEach, before, describe, test } from 'node:test';
 import { closedUrl, startFakeFaas } from './fake-faas';
 
 const entry = join(__dirname, '..', 'index.js');
@@ -102,4 +104,45 @@ describe('metacall launchpad', { timeout: 10_000 }, () => {
       await faas.close();
     }
   });
+
+  describe(
+    'opening the browser',
+    { skip: process.platform !== 'linux' && 'needs xdg-open' },
+    () => {
+      let bin: string;
+      let opened: string;
+      let env: NodeJS.ProcessEnv;
+
+      before(() => {
+        // A fake xdg-open that writes down the URL it was asked to open
+        bin = mkdtempSync(join(tmpdir(), 'launchpad-bin-'));
+        opened = join(bin, 'opened.txt');
+        writeFileSync(join(bin, 'xdg-open'), `#!/bin/sh\necho "$1" > "${opened}"\n`);
+        chmodSync(join(bin, 'xdg-open'), 0o755);
+        env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+      });
+
+      afterEach(() => rmSync(opened, { force: true }));
+
+      after(() => rmSync(bin, { recursive: true, force: true }));
+
+      test('opens the dashboard URL', async () => {
+        const port = await freePort();
+        start(['--port', port, '--faas-url', await closedUrl()], env);
+
+        while (!existsSync(opened)) await new Promise(resolve => setTimeout(resolve, 20));
+        // The file can exist before echo has written to it
+        while (readFileSync(opened, 'utf8') === '') await new Promise(r => setTimeout(r, 20));
+        assert.equal(readFileSync(opened, 'utf8').trim(), `http://localhost:${port}`);
+      });
+
+      test("doesn't open anything with --no-open", async () => {
+        const launchpad = start(['--no-open', '--port', await freePort()], env);
+
+        await launchpad.waitFor(/running at/);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        assert.equal(existsSync(opened), false);
+      });
+    },
+  );
 });

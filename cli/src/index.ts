@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { HELP, Options, parseOptions, UsageError } from './args';
+import { openBrowser } from './open';
 import { isFaasReady } from './probe';
 import { createApp } from './server';
 import { printVersionAndExit } from './version';
@@ -22,10 +23,11 @@ if (options.version) {
   printVersionAndExit();
 }
 
-const { port, faasUrl } = options;
+const { port, faasUrl, open } = options;
 createApp({ port, faasUrl }).listen(port, async () => {
   const url = `http://localhost:${port}`;
   console.log(`MetaCall Launchpad is running at ${url}`);
+  if (open) openBrowser(url);
   if (!(await isFaasReady(faasUrl))) {
     console.warn(`FaaS is not answering at ${faasUrl.origin}. Start it with: metacall faas`);
   }

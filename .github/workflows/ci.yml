@@ -74,7 +74,7 @@ jobs:
       - name: Smoke test the server
         run: |
           node cli/dist/index.js --version | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$'
-          node cli/dist/index.js &
+          node cli/dist/index.js --no-open &
           trap "kill $!" EXIT
           curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:9001/__launchpad/config | grep -q '"mode":"local"'
           curl -fsS -H 'Accept: text/html' http://localhost:9001/ | grep -q '<div id="root">'
