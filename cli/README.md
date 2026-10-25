@@ -17,7 +17,8 @@ metacall faas
 metacall launchpad
 ```
 
-Then open `http://localhost:9001`.
+It opens `http://localhost:9001` in your browser. If FaaS isn't running yet, Launchpad says so
+and keeps running, and the dashboard works as soon as FaaS is started.
 
 Without the MetaCall installer:
 
@@ -27,9 +28,16 @@ npx @metacall/launchpad
 
 ### Options
 
-| Option      | Description                    |
-| ----------- | ------------------------------ |
-| `--version` | Print the version and exit     |
+| Option             | Description                                                 |
+| ------------------ | ----------------------------------------------------------- |
+| `--port <port>`    | Port to serve the dashboard on (default `9001`)             |
+| `--faas-url <url>` | Address of the local FaaS (default `http://localhost:9000`) |
+| `--no-open`        | Don't open the dashboard in the browser                     |
+| `--version`        | Print the version and exit                                  |
+| `--help`           | Print the options and exit                                  |
+
+Launchpad only listens on `127.0.0.1`, and other websites can't use it to deploy or delete
+apps, because a local FaaS has no login.
 
 ## Development
 
