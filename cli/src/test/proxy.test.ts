@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { request, Server } from 'node:http';
-import { AddressInfo } from 'node:net';
+import { AddressInfo, createServer } from 'node:net';
 import { after, afterEach, before, describe, test } from 'node:test';
 import express from 'express';
 import { forward } from '../proxy';
@@ -9,7 +9,8 @@ import { closedUrl, FakeFaas, startFakeFaas, stop } from './fake-faas';
 /** An app that forwards every request, so these tests only cover forward() itself. */
 async function startForwarder(faasUrl: string): Promise<{ base: string; server: Server }> {
   const app = express();
-  app.use((req, res) => forward(req, res, faasUrl));
+  const target = new URL(faasUrl);
+  app.use((req, res) => forward(req, res, target));
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   return { base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, server };
@@ -174,6 +175,53 @@ describe('forward', { timeout: 10_000 }, () => {
       assert.equal(res.status, 502);
       assert.match(res.headers.get('content-type') ?? '', /^application\/json/);
       assert.deepEqual(await res.json(), { error: `No response from FaaS at ${downUrl}` });
+    }
+  });
+
+  test('reaches FaaS at an IPv6 address', async t => {
+    let ipv6Faas: FakeFaas;
+    try {
+      ipv6Faas = await startFakeFaas(undefined, '::1');
+    } catch {
+      t.skip('this machine has no IPv6 loopback');
+      return;
+    }
+    const toIpv6Faas = await startForwarder(ipv6Faas.url);
+
+    try {
+      const res = await fetch(`${toIpv6Faas.base}/api/inspect`);
+
+      assert.deepEqual(await res.json(), { method: 'GET', url: '/api/inspect' });
+    } finally {
+      await stop(toIpv6Faas.server);
+      await ipv6Faas.close();
+    }
+  });
+
+  test('talks TLS to an https FaaS URL', async () => {
+    // No certificate needed: it's enough to see the TLS handshake start
+    let gotFirstByte: (byte: number) => void = () => {};
+    const firstByte = new Promise<number>(resolve => (gotFirstByte = resolve));
+    const tlsServer = createServer(socket =>
+      socket.once('data', data => {
+        gotFirstByte(data[0]);
+        socket.destroy();
+      }),
+    );
+    tlsServer.listen(0, '127.0.0.1');
+    await new Promise<void>(resolve => tlsServer.once('listening', resolve));
+    const { port } = tlsServer.address() as AddressInfo;
+    const toHttpsFaas = await startForwarder(`https://127.0.0.1:${port}`);
+
+    try {
+      const res = await fetch(`${toHttpsFaas.base}/api/inspect`);
+
+      assert.equal(res.status, 502);
+      // 0x16 starts a TLS handshake record (the ClientHello)
+      assert.equal(await firstByte, 0x16);
+    } finally {
+      await stop(toHttpsFaas.server);
+      await new Promise<void>(resolve => tlsServer.close(() => resolve()));
     }
   });
 });

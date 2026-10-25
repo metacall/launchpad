@@ -15,14 +15,14 @@ export const RUNTIME_CONFIG_PATH = '/__launchpad/config';
 export interface ServerOptions {
   port: number;
   publicDir?: string;
-  faasUrl?: string;
+  faasUrl?: URL;
 }
 
 /** Create the app. `publicDir` defaults to the dashboard bundled in the package. */
 export function createApp({
   port,
   publicDir = join(__dirname, 'public'),
-  faasUrl = 'http://localhost:9000',
+  faasUrl = new URL('http://localhost:9000'),
 }: ServerOptions): Express {
   const app = express();
   app.disable('x-powered-by');

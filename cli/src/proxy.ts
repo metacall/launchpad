@@ -31,8 +31,7 @@ function endToEndHeaders(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
   return result;
 }
 
-export function forward(req: Request, res: Response, faasUrl: string): void {
-  const target = new URL(faasUrl);
+export function forward(req: Request, res: Response, target: URL): void {
   const request = target.protocol === 'https:' ? httpsRequest : httpRequest;
 
   const upstream = request(
@@ -58,7 +57,7 @@ export function forward(req: Request, res: Response, faasUrl: string): void {
       res.destroy();
       return;
     }
-    res.status(502).json({ error: `No response from FaaS at ${faasUrl}` });
+    res.status(502).json({ error: `No response from FaaS at ${target.origin}` });
   });
 
   // The browser went away before FaaS answered

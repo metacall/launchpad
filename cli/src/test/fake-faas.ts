@@ -22,7 +22,10 @@ const echo: Respond = (req, res) => {
 };
 
 /** A stand-in for FaaS that records every request it gets. */
-export async function startFakeFaas(respond: Respond = echo): Promise<FakeFaas> {
+export async function startFakeFaas(
+  respond: Respond = echo,
+  host = '127.0.0.1',
+): Promise<FakeFaas> {
   const requests: ReceivedRequest[] = [];
 
   const server = createServer((req, res) => {
@@ -40,11 +43,15 @@ export async function startFakeFaas(respond: Respond = echo): Promise<FakeFaas> 
     });
   });
 
-  server.listen(0, '127.0.0.1');
-  await new Promise<void>(resolve => server.once('listening', resolve));
+  server.listen(0, host);
+  await new Promise<void>((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
+  });
 
+  const { port } = server.address() as AddressInfo;
   return {
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    url: `http://${host.includes(':') ? `[${host}]` : host}:${port}`,
     requests,
     close: () => stop(server),
   };

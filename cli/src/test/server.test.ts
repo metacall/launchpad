@@ -113,7 +113,7 @@ describe('launchpad server', () => {
 
     before(async () => {
       faas = await startFakeFaas();
-      forwardingServer = createApp({ port: 9001, publicDir, faasUrl: faas.url }).listen(0);
+      forwardingServer = createApp({ port: 9001, publicDir, faasUrl: new URL(faas.url) }).listen(0);
       await new Promise<void>(resolve => forwardingServer.once('listening', resolve));
       forwardingBase = `http://127.0.0.1:${(forwardingServer.address() as AddressInfo).port}`;
     });
