@@ -6,7 +6,14 @@
  */
 
 import { Request, Response } from 'express';
-import { IncomingHttpHeaders, OutgoingHttpHeaders, request as httpRequest } from 'http';
+import {
+  ClientRequest,
+  IncomingHttpHeaders,
+  IncomingMessage,
+  OutgoingHttpHeaders,
+  request as httpRequest,
+  RequestOptions,
+} from 'http';
 import { request as httpsRequest } from 'https';
 
 // Headers that only apply to one connection (RFC 9110 section 7.6.1)
@@ -31,16 +38,30 @@ function endToEndHeaders(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
   return result;
 }
 
-export function forward(req: Request, res: Response, target: URL): void {
+/** Start an http or https request to FaaS at `target`. */
+export function requestFaas(
+  target: URL,
+  options: RequestOptions,
+  onResponse?: (res: IncomingMessage) => void,
+): ClientRequest {
   const request = target.protocol === 'https:' ? httpsRequest : httpRequest;
-
-  const upstream = request(
+  return request(
     {
       // Plain fields, not urlToHttpOptions(): on Node 18 its result still looks
       // like a URL to http.request, which then ignores `path` and sends `/`
       protocol: target.protocol,
       hostname: target.hostname.replace(/^\[(.*)\]$/, '$1'),
       port: target.port,
+      ...options,
+    },
+    onResponse,
+  );
+}
+
+export function forward(req: Request, res: Response, target: URL): void {
+  const upstream = requestFaas(
+    target,
+    {
       method: req.method,
       path: req.originalUrl,
       headers: { ...endToEndHeaders(req.headers), host: target.host },
