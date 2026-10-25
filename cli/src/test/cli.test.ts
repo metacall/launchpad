@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { ChildProcessWithoutNullStreams, spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { networkInterfaces, tmpdir } from 'node:os';
+import { AddressInfo, createServer } from 'node:net';
 import { join } from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
 import { closedUrl, startFakeFaas } from './fake-faas';
@@ -120,6 +121,43 @@ describe('metacall launchpad', { timeout: 10_000 }, () => {
     assert.equal((await fetch(`http://127.0.0.1:${port}/__launchpad/config`)).status, 200);
     await assert.rejects(fetch(`http://${lan}:${port}/__launchpad/config`));
   });
+
+  test('explains a busy port and exits 1', async () => {
+    const taken = createServer().listen(0, '127.0.0.1');
+    await new Promise<void>(resolve => taken.once('listening', resolve));
+    const port = String((taken.address() as AddressInfo).port);
+    try {
+      const launchpad = start(['--no-open', '--port', port]);
+
+      assert.equal(await launchpad.exited, 1);
+      assert.match(launchpad.stderr(), new RegExp(`Port ${port} is already in use.*--port`));
+    } finally {
+      await new Promise<void>(resolve => taken.close(() => resolve()));
+    }
+  });
+
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    test(`exits 0 on ${signal}, even with a request still waiting on FaaS`, async () => {
+      // A FaaS that never answers, like a long deploy
+      const faas = await startFakeFaas(() => {});
+      const port = await freePort();
+      const launchpad = start(['--no-open', '--port', port, '--faas-url', faas.url]);
+      try {
+        await launchpad.waitFor(/running at/);
+        const cutOff = assert.rejects(
+          fetch(`http://127.0.0.1:${port}/api/deploy/create`, { method: 'POST' }),
+        );
+        while (faas.requests.length < 2) await new Promise(resolve => setTimeout(resolve, 20));
+
+        launchpad.child.kill(signal);
+
+        assert.equal(await launchpad.exited, 0);
+        await cutOff;
+      } finally {
+        await faas.close();
+      }
+    });
+  }
 
   describe(
     'opening the browser',
