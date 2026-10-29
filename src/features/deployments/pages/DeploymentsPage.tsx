@@ -69,7 +69,7 @@ export default function DeploymentsPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-200 active:translate-y-0.5 transition-all"
+                className="flex items-center justify-center gap-2 min-h-11 px-4 py-2.5 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-200 active:translate-y-0.5 transition-all"
                 onClick={() => navigate('/')}
                 title="Back to Dashboard"
               >
@@ -77,14 +77,14 @@ export default function DeploymentsPage() {
                 Home
               </button>
               <button
-                className="flex items-center justify-center p-2.5 bg-white hover:bg-gray-200 hover:translate-y-px hover:translate-x-px text-gray-600 active:shadow-none active:translate-y-0.5 active:translate-x-0.5 transition-all"
+                className="flex items-center justify-center w-11 h-11 bg-white hover:bg-gray-200 hover:translate-y-px hover:translate-x-px text-gray-600 active:shadow-none active:translate-y-0.5 active:translate-x-0.5 transition-all"
                 onClick={refetch}
                 title="Refresh"
               >
                 <RefreshCw size={16} />
               </button>
               <button
-                className="flex items-center gap-2 px-5 py-2.5 font-bold text-black hover:bg-gray-500 hover:text-white active:shadow-none active:translate-y-0.5 active:translate-x-0.5 transition-all"
+                className="flex items-center justify-center gap-2 min-h-11 px-5 py-2.5 font-bold text-black hover:bg-gray-500 hover:text-white active:shadow-none active:translate-y-0.5 active:translate-x-0.5 transition-all"
                 onClick={() => navigate('/deployments/new')}
               >
                 <Plus size={16} strokeWidth={3} />

@@ -26,7 +26,7 @@ export function DeploymentTable({
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
             <th className="py-3 px-4 font-bold">Name</th>
-            <th className="py-3 px-4 font-bold">Language</th>
+            <th className="py-3 px-4 font-bold hidden md:table-cell">Language</th>
             <th className="py-3 px-4 font-bold">Status</th>
             {/* i dont want to show the endpoint int he small screem  */}
             <th className="py-3 px-4 font-bold hidden sm:table-cell">Endpoint</th>
@@ -54,7 +54,7 @@ export function DeploymentTable({
                     {dep.suffix}
                   </span>
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 hidden md:table-cell">
                   <div className="flex gap-1.5 flex-wrap">
                     {languages.length > 0 ? (
                       languages.map(lang => <LanguageBadge key={lang} language={lang} />)
@@ -96,7 +96,7 @@ export function DeploymentTable({
                         e.stopPropagation();
                         navigate(`/deployments/${dep.suffix}`);
                       }}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border border-transparent"
+                      className="inline-flex items-center justify-center w-11 h-11 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border border-transparent"
                       title="View Details"
                     >
                       <ExternalLink size={14} />
@@ -107,7 +107,7 @@ export function DeploymentTable({
                           e.stopPropagation();
                           onDelete(dep.suffix);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent"
+                        className="inline-flex items-center justify-center w-11 h-11 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent"
                         title="Delete Deployment"
                       >
                         <Trash2 size={14} />
