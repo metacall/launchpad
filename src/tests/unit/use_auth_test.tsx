@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { AuthProvider, useAuth } from '@/features/auth/hooks/useAuth';
 import { api } from '@/lib/api-client';
@@ -11,6 +11,7 @@ vi.mock('@/lib/api-client', () => ({
   api: {
     login: vi.fn(),
     signup: vi.fn(),
+    validate: vi.fn(),
   },
 }));
 
@@ -23,20 +24,44 @@ describe('useAuth / AuthProvider', () => {
     localStorage.clear();
     vi.clearAllMocks();
     window.history.pushState({}, '', '/');
+    mockedApi.validate.mockResolvedValue(true);
   });
 
   it('throws when used outside provider', () => {
     expect(() => renderHook(() => useAuth())).toThrow('useAuth must be used inside <AuthProvider>');
   });
 
-  it('hydrates user from localStorage', () => {
+  it('validates and hydrates user from localStorage', async () => {
     localStorage.setItem('faas_token', 'token-1');
     localStorage.setItem('faas_user_email', 'alice@example.com');
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
+    expect(result.current.loading).toBe(true);
     expect(result.current.user).toEqual({ email: 'alice@example.com' });
-    expect(result.current.loading).toBe(false);
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.user).toEqual({ email: 'alice@example.com' });
+    });
+    expect(mockedApi.validate).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears an invalid stored session', async () => {
+    localStorage.setItem('faas_token', 'expired-token');
+    localStorage.setItem('faas_user_email', 'alice@example.com');
+    localStorage.setItem('faas_vat_id', 'EE123456789');
+    mockedApi.validate.mockResolvedValue(false);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.user).toBeNull();
+    });
+    expect(localStorage.getItem('faas_token')).toBeNull();
+    expect(localStorage.getItem('faas_user_email')).toBeNull();
+    expect(localStorage.getItem('faas_vat_id')).toBeNull();
   });
 
   it('login stores token/email and updates user', async () => {

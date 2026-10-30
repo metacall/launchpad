@@ -145,10 +145,24 @@ export const api = {
 
   /** Validate the current auth token. */
   validate: async (): Promise<boolean> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
     try {
-      return await getProtocol().validate();
+      const response = await fetch(`${getBaseUrl()}/validate`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `jwt ${getToken()}`,
+        },
+        signal: controller.signal,
+      });
+      if (!response.ok) return false;
+      const value = (await response.json()) as unknown;
+      return value === true;
     } catch {
       return false;
+    } finally {
+      clearTimeout(timer);
     }
   },
 

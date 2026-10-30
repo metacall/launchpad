@@ -99,6 +99,30 @@ describe('api-client', () => {
     await expect(api.ready()).resolves.toBe(false);
   });
 
+  it('validate checks the stored token with an authenticated request', async () => {
+    localStorage.setItem('faas_token', 'valid-token');
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(200, true));
+
+    await expect(api.validate()).resolves.toBe(true);
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/validate');
+    const headers = options.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('jwt valid-token');
+  });
+
+  it('validate returns false for an invalid token or server response', async () => {
+    localStorage.setItem('faas_token', 'expired-token');
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+    await expect(api.validate()).resolves.toBe(false);
+
+    mockFetch.mockResolvedValueOnce(makeResponse(200, false));
+    await expect(api.validate()).resolves.toBe(false);
+  });
+
   it('inspectByName throws when deployment is missing', async () => {
     const api = await loadApi();
     // Protocol's inspectByName calls GET /api/inspect and searches the list

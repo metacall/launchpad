@@ -82,6 +82,9 @@ export default function DeployRepositoryPage() {
   // submittingLabel is set immediately on click so the progress screen renders before the API call
   const [submittingLabel, setSubmittingLabel] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submitInProgressRef = useRef(false);
+  const providerRequestRef = useRef(0);
+  const languageRequestRef = useRef(0);
 
   const [subscriptions, setSubscriptions] = useState<Record<string, number>>({});
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
@@ -153,6 +156,7 @@ export default function DeployRepositoryPage() {
   }, [plan]);
 
   const handleDeploy = async () => {
+    if (submitInProgressRef.current) return;
     // Check if plan is selected
     if (!plan) {
       navigate('/plans', { replace: true });
@@ -163,6 +167,7 @@ export default function DeployRepositoryPage() {
       setDeployError('Repository URL is required.');
       return;
     }
+    submitInProgressRef.current = true;
 
     // Derive a display label from the URL immediately (no API needed)
     const urlLabel =
@@ -198,6 +203,7 @@ export default function DeployRepositoryPage() {
       setSubmittingLabel(null);
     } finally {
       setDeploying(false);
+      submitInProgressRef.current = false;
     }
   };
 
@@ -248,6 +254,7 @@ export default function DeployRepositoryPage() {
   // Auto-fetch branches when URL changes
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const requestId = ++providerRequestRef.current;
     setBranches([]);
     setBranchFetchError('');
     setDetectedLanguages('');
@@ -298,12 +305,14 @@ export default function DeployRepositoryPage() {
           if (b === defaultBranch) return 1;
           return a.localeCompare(b);
         });
+        if (requestId !== providerRequestRef.current) return;
         setBranches(names);
         setBranchName(prev => (prev.trim() && names.includes(prev.trim()) ? prev : defaultBranch));
       } catch (err: unknown) {
+        if (requestId !== providerRequestRef.current) return;
         setBranchFetchError((err as Error).message ?? 'Could not fetch branches.');
       } finally {
-        setBranchLoading(false);
+        if (requestId === providerRequestRef.current) setBranchLoading(false);
       }
     }, 700);
 
@@ -321,6 +330,7 @@ export default function DeployRepositoryPage() {
     if (!info) return;
 
     let active = true;
+    const requestId = ++languageRequestRef.current;
 
     let rawUrl = '';
     if (info.provider === 'github') {
@@ -341,7 +351,7 @@ export default function DeployRepositoryPage() {
             languages?: string[];
           };
 
-          if (!active) return;
+          if (!active || requestId !== languageRequestRef.current) return;
 
           let langs: string[] = [];
 

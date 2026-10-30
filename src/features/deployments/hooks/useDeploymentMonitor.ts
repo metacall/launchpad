@@ -34,6 +34,8 @@ export function useDeploymentMonitor({ target, onReady, onFailed }: UseDeploymen
     let stopped = false;
     let timeoutId: number | null = null;
     let activeController: AbortController | null = null;
+    const startedAt = Date.now();
+    const maxMonitorDurationMs = 10 * 60 * 1000;
 
     const poll = async () => {
       if (stopped) return;
@@ -58,6 +60,14 @@ export function useDeploymentMonitor({ target, onReady, onFailed }: UseDeploymen
         }
       } catch {
         // The deployment can take a moment to appear in the inspect list.
+      }
+
+      if (Date.now() - startedAt >= maxMonitorDurationMs) {
+        stopped = true;
+        onFailed(
+          `Deployment "${target.suffix}" did not finish within 10 minutes. Check its status and retry.`,
+        );
+        return;
       }
 
       timeoutId = window.setTimeout(poll, 1500);

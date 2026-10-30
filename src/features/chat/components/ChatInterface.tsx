@@ -28,6 +28,7 @@ export function ChatInterface() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const typingPreview = useMemo(
     () =>
@@ -51,7 +52,8 @@ export function ChatInterface() {
     setIsTyping(true);
     const reply = cannedFollowUps[Math.floor(Math.random() * cannedFollowUps.length)];
 
-    setTimeout(() => {
+    if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
+    replyTimerRef.current = setTimeout(() => {
       setMessages(prev => [
         ...prev,
         {
@@ -62,12 +64,19 @@ export function ChatInterface() {
         },
       ]);
       setIsTyping(false);
+      replyTimerRef.current = null;
     }, 800);
   };
 
+  useEffect(() => {
+    return () => {
+      if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
+    };
+  }, []);
+
   const handleSend = () => {
     const clean = input.trim();
-    if (!clean) return;
+    if (!clean || isTyping) return;
 
     setMessages(prev => [
       ...prev,
@@ -135,6 +144,7 @@ export function ChatInterface() {
           />
           <button
             onClick={handleSend}
+            disabled={!input.trim() || isTyping}
             className="inline-flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-5xl px-3 py-2 shadow-md transition-transform active:scale-95"
             aria-label="Send"
           >
