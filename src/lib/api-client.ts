@@ -116,9 +116,40 @@ export function isAbortError(err: unknown): err is Error {
   return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
 }
 
+async function responseErrorMessage(response: Response, fallback: string): Promise<string> {
+  const text = await response.text().catch(() => '');
+  const trimmed = text.trim();
+
+  if (trimmed) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (typeof parsed === 'object' && parsed !== null) {
+        const record = parsed as Record<string, unknown>;
+        for (const key of ['message', 'error', 'detail']) {
+          if (typeof record[key] === 'string' && record[key].trim()) {
+            return record[key].trim();
+          }
+        }
+      }
+    } catch {
+      return trimmed;
+    }
+    return trimmed;
+  }
+
+  if (response.statusText) return `${fallback}: ${response.statusText}`;
+  return `${fallback} (${response.status})`;
+}
+
 function mapError(err: unknown): never {
+  if (err instanceof ApiError) {
+    throw err;
+  }
   if (isProtocolError(err)) {
     throw new ApiError(err.message, err.status, err.data);
+  }
+  if (err instanceof TypeError && /failed to fetch|networkerror|load failed/i.test(err.message)) {
+    throw new ApiError('Unable to reach the server. Check your connection or CORS configuration.');
   }
   if (err instanceof Error) {
     throw new ApiError(err.message);
@@ -145,10 +176,24 @@ export const api = {
 
   /** Validate the current auth token. */
   validate: async (): Promise<boolean> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
     try {
-      return await getProtocol().validate();
+      const response = await fetch(`${getBaseUrl()}/validate`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `jwt ${getToken()}`,
+        },
+        signal: controller.signal,
+      });
+      if (!response.ok) return false;
+      const value = (await response.json()) as unknown;
+      return value === true;
     } catch {
       return false;
+    } finally {
+      clearTimeout(timer);
     }
   },
 
@@ -232,6 +277,26 @@ export const api = {
     }
   },
 
+  /** Permanently delete the current account. */
+  deleteAccount: async (): Promise<boolean> => {
+    try {
+      const baseUrl = getBaseUrl();
+      const res = await authFetch(`${baseUrl}/api/account`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `jwt ${getToken()}`,
+        },
+      });
+      if (res.ok) return true;
+
+      const message = await responseErrorMessage(res, 'Account deletion failed');
+      throw new ApiError(message, res.status);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      mapError(err);
+    }
+  },
+
   /** Update password. */
   changePassword: async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
@@ -250,11 +315,8 @@ export const api = {
       if (res.status === 404) {
         throw new ApiError('Password change is not available on this server.', 404);
       }
-      const data = await res.text().catch(() => null);
-      throw new ApiError(
-        `Password update failed: ${res.statusText}${data ? ` - ${data}` : ''}`,
-        res.status,
-      );
+      const message = await responseErrorMessage(res, 'Password update failed');
+      throw new ApiError(message, res.status);
     } catch (err) {
       if (err instanceof ApiError) throw err;
       mapError(err);
@@ -446,8 +508,8 @@ export const api = {
       });
 
       if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new ApiError(errText || res.statusText || `Login failed (${res.status})`, res.status);
+        const message = await responseErrorMessage(res, 'Login failed');
+        throw new ApiError(message, res.status);
       }
 
       const token = await res.text();
@@ -505,11 +567,8 @@ export const api = {
       });
 
       if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new ApiError(
-          errText || res.statusText || `Signup failed (${res.status})`,
-          res.status,
-        );
+        const message = await responseErrorMessage(res, 'Signup failed');
+        throw new ApiError(message, res.status);
       }
 
       const token = await res.text();

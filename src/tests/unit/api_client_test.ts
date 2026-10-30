@@ -99,6 +99,30 @@ describe('api-client', () => {
     await expect(api.ready()).resolves.toBe(false);
   });
 
+  it('validate checks the stored token with an authenticated request', async () => {
+    localStorage.setItem('faas_token', 'valid-token');
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(200, true));
+
+    await expect(api.validate()).resolves.toBe(true);
+    const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/validate');
+    const headers = options.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('jwt valid-token');
+  });
+
+  it('validate returns false for an invalid token or server response', async () => {
+    localStorage.setItem('faas_token', 'expired-token');
+    const api = await loadApi();
+
+    mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+    await expect(api.validate()).resolves.toBe(false);
+
+    mockFetch.mockResolvedValueOnce(makeResponse(200, false));
+    await expect(api.validate()).resolves.toBe(false);
+  });
+
   it('inspectByName throws when deployment is missing', async () => {
     const api = await loadApi();
     // Protocol's inspectByName calls GET /api/inspect and searches the list
@@ -107,11 +131,14 @@ describe('api-client', () => {
     await expect(api.inspectByName('missing')).rejects.toThrow(/missing/i);
   });
 
-  it('login rejects on a non-2xx response', async () => {
+  it('login rejects with a parsed JSON error message', async () => {
     const api = await loadApi();
     mockFetch.mockResolvedValueOnce(makeResponse(400, { error: 'Invalid credentials' }));
 
-    await expect(api.login('a@b.com', 'bad-pass')).rejects.toBeDefined();
+    await expect(api.login('a@b.com', 'bad-pass')).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid credentials',
+    });
   });
 
   it('login rejects when 2xx body contains no token field', async () => {
@@ -332,6 +359,31 @@ describe('api-client', () => {
     });
   });
 
+  describe('deleteAccount', () => {
+    it('sends an authenticated delete request and resolves on success', async () => {
+      localStorage.setItem('faas_token', 'my-token');
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(makeResponse(200, { deleted: true }));
+
+      await expect(api.deleteAccount()).resolves.toBe(true);
+      const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/api/account');
+      expect(options.method).toBe('DELETE');
+      expect(options.headers).toMatchObject({ Authorization: 'jwt my-token' });
+    });
+
+    it('rejects with a parsed JSON server error', async () => {
+      const api = await loadApi();
+      mockFetch.mockResolvedValueOnce(makeResponse(403, { message: 'Account deletion denied' }));
+
+      await expect(api.deleteAccount()).rejects.toMatchObject({
+        name: 'ApiError',
+        status: 403,
+        message: 'Account deletion denied',
+      });
+    });
+  });
+
   describe('changePassword', () => {
     it('posts to change-password and returns true on success', async () => {
       localStorage.setItem('faas_token', 'my-token');
@@ -372,7 +424,7 @@ describe('api-client', () => {
 
       await expect(api.changePassword('oldpass123', 'newpass123')).rejects.toMatchObject({
         name: 'ApiError',
-        message: 'Failed to fetch',
+        message: expect.stringMatching(/unable to reach the server/i),
       });
     });
 

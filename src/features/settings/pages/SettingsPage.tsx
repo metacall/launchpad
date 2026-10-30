@@ -210,23 +210,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleCancelSubscription = async (planName: string) => {
-    if (!confirm(`Are you sure you want to cancel your ${planName} Plan subscription?`)) return;
-    try {
-      await fetchSettingsData();
-      setFeedbackMessage({
-        type: 'success',
-        text: `${planName} Plan subscription cancellation requested.`,
-      });
-    } catch (err: unknown) {
-      const error = err as Error;
-      setFeedbackMessage({
-        type: 'error',
-        text: error.message || 'Failed to cancel subscription.',
-      });
-    }
-  };
-
   const handleDownloadInvoice = async (receiptId: string, date: string, amount: string) => {
     try {
       await downloadInvoicePDF(receiptId, date, amount);
@@ -235,9 +218,21 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    if (!confirm('Delete local account data and sign out?')) return;
-    logout();
+  const handleDeleteAccount = async () => {
+    if (!confirm('Permanently delete your account? This action cannot be undone.')) return;
+
+    setFeedbackMessage(null);
+    try {
+      await api.deleteAccount();
+      localStorage.removeItem('faas_vat_id');
+      logout();
+    } catch (err: unknown) {
+      const error = err as Error;
+      setFeedbackMessage({
+        type: 'error',
+        text: error.message || 'Failed to delete account.',
+      });
+    }
   };
 
   if (localMode) return <LocalModeSettings faasUrl={getBaseUrl()} />;
@@ -511,7 +506,7 @@ export default function SettingsPage() {
                 <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
                   {loadingDeploys ? (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-gray-400 font-medium">
+                      <td colSpan={3} className="py-8 text-center text-gray-400 font-medium">
                         <RefreshCw className="animate-spin inline mr-2 text-slate-400" size={14} />
                         Loading payments...
                       </td>
@@ -621,7 +616,6 @@ export default function SettingsPage() {
                     <th className="py-3 px-4">Plan</th>
                     <th className="py-3 px-4">Deploy</th>
                     <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4 text-center">Delete</th>
                   </tr>
                 </thead>
                 <tbody className="text-xs text-slate-700 divide-y divide-slate-100">
@@ -663,15 +657,6 @@ export default function SettingsPage() {
                           <td className="py-3 px-4 text-gray-500 font-medium">{deployText}</td>
                           <td className="py-3 px-4 text-gray-400 font-medium font-mono">
                             {item.date}
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <button
-                              onClick={() => handleCancelSubscription(item.planName)}
-                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-all inline-flex items-center justify-center cursor-pointer"
-                              title="Cancel Subscription"
-                            >
-                              <Trash2 size={14} />
-                            </button>
                           </td>
                         </tr>
                       );
