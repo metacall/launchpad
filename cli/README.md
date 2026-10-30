@@ -17,6 +17,9 @@ metacall launchpad
 
 Then open `http://localhost:9001`.
 
+The CLI opens this URL in your default browser automatically (set `CI=1` to
+disable that behavior).
+
 Without the MetaCall installer:
 
 ```sh
@@ -27,7 +30,17 @@ npx @metacall/launchpad
 
 | Option      | Description                    |
 | ----------- | ------------------------------ |
-| `--version` | Print the version and exit     |
+| `--port <port>` | Port used by Launchpad (default: `9001`) |
+| `--faas-url <url>` | Local FaaS URL (default: `http://localhost:9000`) |
+| `--version` | Print the version and exit |
+
+Launchpad proxies dashboard API and function requests to the FaaS URL, avoiding CORS
+issues while keeping the dashboard and FaaS processes separate. If your FaaS uses a
+different port, for example:
+
+```sh
+npx @metacall/launchpad --port 9010 --faas-url http://localhost:9100
+```
 
 ## Development
 
