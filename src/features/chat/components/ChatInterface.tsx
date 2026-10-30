@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Trash2 } from 'lucide-react';
+import { generateMetaCallReply } from '@/features/chat/support';
 
 type ChatMessage = {
   id: string;
@@ -8,26 +9,55 @@ type ChatMessage = {
   time: string;
 };
 
-const seedConversation: ChatMessage[] = [
-  {
-    id: 'm-1',
-    role: 'agent',
-    text: 'Welcome to MetaCall Support! How can we help you today?',
-    time: timeLabel(),
-  },
-];
+const CHAT_STORAGE_KEY = 'metacall_launchpad_chat';
 
-const cannedFollowUps = ['Under Development Right now'];
+function seedConversation(): ChatMessage[] {
+  return [
+    {
+      id: 'm-1',
+      role: 'agent',
+      text: 'Welcome to MetaCall Support! How can we help you today?',
+      time: timeLabel(),
+    },
+  ];
+}
 
 function timeLabel(date = new Date()) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function loadConversation(): ChatMessage[] {
+  try {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!saved) return seedConversation();
+    const parsed = JSON.parse(saved) as unknown;
+    if (!Array.isArray(parsed)) return seedConversation();
+
+    const valid = parsed.filter(
+      (item): item is ChatMessage =>
+        Boolean(item) &&
+        typeof item === 'object' &&
+        'id' in item &&
+        'role' in item &&
+        'text' in item &&
+        'time' in item &&
+        (item.role === 'agent' || item.role === 'user') &&
+        typeof item.id === 'string' &&
+        typeof item.text === 'string' &&
+        typeof item.time === 'string',
+    );
+    return valid.length ? valid : seedConversation();
+  } catch {
+    return seedConversation();
+  }
+}
+
 export function ChatInterface() {
-  const [messages, setMessages] = useState<ChatMessage[]>(seedConversation);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadConversation);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const typingPreview = useMemo(
     () =>
@@ -44,24 +74,38 @@ export function ChatInterface() {
 
   useEffect(() => {
     if (!scrollerRef.current) return;
-    scrollerRef.current.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: 'smooth' });
+    if (typeof scrollerRef.current.scrollTo === 'function') {
+      scrollerRef.current.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(
+    () => () => {
+      if (replyTimerRef.current) clearTimeout(replyTimerRef.current);
+    },
+    [],
+  );
 
   const pushAgentReply = (userText: string) => {
     setIsTyping(true);
-    const reply = cannedFollowUps[Math.floor(Math.random() * cannedFollowUps.length)];
+    const reply = generateMetaCallReply(userText);
 
-    setTimeout(() => {
+    replyTimerRef.current = setTimeout(() => {
       setMessages(prev => [
         ...prev,
         {
           id: `a-${Date.now()}`,
           role: 'agent',
-          text: reply.replace('this', userText.length > 3 ? userText : 'that'),
+          text: reply,
           time: timeLabel(),
         },
       ]);
       setIsTyping(false);
+      replyTimerRef.current = null;
     }, 800);
   };
 
@@ -77,8 +121,29 @@ export function ChatInterface() {
     pushAgentReply(clean);
   };
 
+  const handleReset = () => {
+    if (replyTimerRef.current) {
+      clearTimeout(replyTimerRef.current);
+      replyTimerRef.current = null;
+    }
+    setIsTyping(false);
+    setInput('');
+    setMessages(seedConversation());
+  };
+
   return (
     <div className="flex h-full flex-col bg-slate-100/15 text-slate-900">
+      <div className="flex justify-end border-b border-slate-100 bg-white px-3 py-1">
+        <button
+          type="button"
+          onClick={handleReset}
+          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          aria-label="Reset chat"
+        >
+          <Trash2 size={14} />
+          Reset
+        </button>
+      </div>
       <div
         ref={scrollerRef}
         className="flex-1 overflow-y-auto px-4 pb-4 pt-3 flex flex-col gap-4 scroll-smooth"
