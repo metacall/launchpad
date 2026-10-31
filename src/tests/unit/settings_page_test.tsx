@@ -3,8 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/hooks/useAuth';
 import SettingsPage from '@/features/settings/pages/SettingsPage';
-import { api } from '@/lib/api-client';
-import { applyRuntimeConfig } from '@/app/config/runtime';
+import { api, getBaseUrl } from '@/lib/api-client';
+import { applyRuntimeConfig, isLocalMode } from '@/app/config/runtime';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -203,5 +203,113 @@ describe('SettingsPage in local mode', () => {
     await waitFor(() => expect(api.listSubscriptionsDeploys).toHaveBeenCalled());
     expect(screen.getByText('CLI Token')).toBeInTheDocument();
     expect(screen.queryByText(/no account in local mode/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('SettingsPage FaaS URL card', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem('faas_token', 'token-1');
+    localStorage.setItem('faas_user_email', 'alice@example.com');
+  });
+
+  afterEach(() => {
+    applyRuntimeConfig({});
+  });
+
+  const renderPage = async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <AuthProvider>
+          <SettingsPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    if (isLocalMode()) return;
+    await waitFor(() => expect(api.listSubscriptionsDeploys).toHaveBeenCalled());
+  };
+
+  const saveUrl = (value: string) => {
+    fireEvent.change(screen.getByLabelText('FaaS URL'), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save URL' }));
+  };
+
+  it('prefills the field with the saved URL', async () => {
+    localStorage.setItem('faas_url', 'http://saved-faas:9000');
+    await renderPage();
+
+    expect(screen.getByLabelText('FaaS URL')).toHaveValue('http://saved-faas:9000');
+  });
+
+  it('saves the URL with surrounding spaces and trailing slashes trimmed', async () => {
+    await renderPage();
+
+    saveUrl('  https://faas.example.com:9000// ');
+
+    expect(localStorage.getItem('faas_url')).toBe('https://faas.example.com:9000');
+    expect(screen.getByLabelText('FaaS URL')).toHaveValue('https://faas.example.com:9000');
+    expect(screen.getByText('FaaS URL saved.')).toBeInTheDocument();
+  });
+
+  it.each(['ftp://faas.example.com', 'not a url', ''])('rejects %j', async value => {
+    localStorage.setItem('faas_url', 'http://saved-faas:9000');
+    await renderPage();
+
+    saveUrl(value);
+
+    expect(localStorage.getItem('faas_url')).toBe('http://saved-faas:9000');
+    expect(screen.getByText(/valid http or https url/i)).toBeInTheDocument();
+  });
+
+  it('removes the saved URL on reset', async () => {
+    localStorage.setItem('faas_url', 'http://saved-faas:9000');
+    await renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(localStorage.getItem('faas_url')).toBeNull();
+    expect(screen.getByLabelText('FaaS URL')).toHaveValue('');
+    expect(screen.getByText('FaaS URL reset.')).toBeInTheDocument();
+  });
+
+  it('says when the runtime config overrides the saved URL', async () => {
+    applyRuntimeConfig({ faasUrl: 'http://localhost:9100' });
+    await renderPage();
+
+    expect(
+      screen.getByText(/runtime config is using http:\/\/localhost:9100/i),
+    ).toBeInTheDocument();
+  });
+
+  it('does not mention an override when the runtime config has no URL', async () => {
+    await renderPage();
+
+    expect(screen.queryByText(/runtime config is using/i)).not.toBeInTheDocument();
+  });
+
+  it('works in local mode and marks the runtime URL as the one in use', async () => {
+    localStorage.clear();
+    applyRuntimeConfig({ mode: 'local', faasUrl: 'http://localhost:9000' });
+    await renderPage();
+
+    expect(
+      screen.getByText(/runtime config is using http:\/\/localhost:9000/i),
+    ).toBeInTheDocument();
+    saveUrl('http://other-faas:9000/');
+
+    expect(localStorage.getItem('faas_url')).toBe('http://other-faas:9000');
+    expect(screen.getByText(/no account in local mode/i)).toBeInTheDocument();
+  });
+
+  it('refreshes the local mode URL display after a save', async () => {
+    localStorage.clear();
+    applyRuntimeConfig({ mode: 'local' });
+    await renderPage();
+
+    vi.mocked(getBaseUrl).mockReturnValueOnce('http://other-faas:9000');
+    saveUrl('http://other-faas:9000');
+
+    expect(screen.getByText('http://other-faas:9000')).toBeInTheDocument();
   });
 });

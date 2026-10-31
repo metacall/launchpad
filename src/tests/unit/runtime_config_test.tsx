@@ -191,6 +191,19 @@ describe('runtime config', () => {
       expect(env.FAAS_URL).toBe('https://api.metacall.io');
     });
 
+    it('uses the localStorage URL over VITE_FAAS_URL when the runtime config has none', async () => {
+      localStorage.setItem('faas_url', 'http://saved-faas:9000');
+      vi.stubEnv('VITE_FAAS_URL', 'https://api.metacall.io');
+      const { applyRuntimeConfig } = await loadRuntime();
+      const { getBaseUrl } = await import('@/lib/api-client');
+      const { env } = await import('@/app/config/env');
+
+      applyRuntimeConfig({});
+
+      expect(getBaseUrl()).toBe('http://saved-faas:9000');
+      expect(env.FAAS_URL).toBe('http://saved-faas:9000');
+    });
+
     it('routes function calls to the runtime faasUrl', async () => {
       const { applyRuntimeConfig } = await loadRuntime();
       const { api } = await import('@/lib/api-client');
