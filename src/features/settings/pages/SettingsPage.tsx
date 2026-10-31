@@ -20,6 +20,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
 import { resolveDeploymentPlan } from '@/shared/lib/plan';
 import { downloadInvoicePDF, formatInvoiceNumber } from '../utils/invoice';
+import { FaasUrlSettings } from '../components/FaasUrlSettings';
 import { LocalModeSettings } from '../components/LocalModeSettings';
 import type { Deployment } from '@/shared/types';
 import type { SubscriptionDeploy } from '@metacall/protocol';
@@ -408,6 +409,9 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            {/* FaaS Server */}
+            <FaasUrlSettings />
           </div>
 
           {/* Col 3 */}
