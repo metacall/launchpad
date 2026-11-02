@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -97,6 +97,7 @@ export default function DeployWizardPage() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loadingDeployments, setLoadingDeployments] = useState(true);
   const [slotOccupied, setSlotOccupied] = useState(false);
+  const submitInProgressRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -247,8 +248,10 @@ export default function DeployWizardPage() {
   };
 
   const handleDeploy = async () => {
+    if (submitInProgressRef.current) return;
     if (!file) return;
     setDeployError('');
+    submitInProgressRef.current = true;
 
     // Compute deploy name from filename — no API needed yet
     const deployName = file.name
@@ -294,6 +297,7 @@ export default function DeployWizardPage() {
       setDeployTarget(null);
     } finally {
       setDeploying(false);
+      submitInProgressRef.current = false;
     }
   };
 
