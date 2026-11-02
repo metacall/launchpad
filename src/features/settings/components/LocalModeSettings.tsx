@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { ExternalLink, Server } from 'lucide-react';
+import { getBaseUrl } from '@/lib/api-client';
+import { FaasUrlSettings } from './FaasUrlSettings';
 
 interface LocalModeSettingsProps {
   faasUrl: string;
@@ -6,6 +9,8 @@ interface LocalModeSettingsProps {
 
 /** Settings for a Launchpad served against a local FaaS, where there is no account. */
 export function LocalModeSettings({ faasUrl }: LocalModeSettingsProps) {
+  const [activeFaasUrl, setActiveFaasUrl] = useState(faasUrl);
+
   return (
     <div className="grow flex flex-col items-center justify-start p-4 bg-white animate-in fade-in duration-500">
       <div className="w-full max-w-350 flex flex-col mt-4">
@@ -29,7 +34,7 @@ export function LocalModeSettings({ faasUrl }: LocalModeSettingsProps) {
                 FaaS URL
               </p>
               <p className="border-b border-slate-300 text-slate-800 py-2.5 text-sm font-mono break-all">
-                {faasUrl}
+                {activeFaasUrl}
               </p>
             </div>
             <p className="text-[12px] text-gray-600 leading-relaxed">
@@ -46,6 +51,10 @@ export function LocalModeSettings({ faasUrl }: LocalModeSettingsProps) {
               <ExternalLink size={14} className="text-gray-400" />
             </a>
           </div>
+        </div>
+
+        <div className="max-w-2xl mt-8">
+          <FaasUrlSettings onChange={() => setActiveFaasUrl(getBaseUrl())} />
         </div>
       </div>
     </div>
