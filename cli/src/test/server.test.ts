@@ -4,7 +4,7 @@ import { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { after, before, describe, test } from 'node:test';
-import { Server } from 'node:http';
+import { createServer, Server } from 'node:http';
 import { createApp } from '../server';
 
 const INDEX_HTML = '<!doctype html><html><body><div id="root"></div></body></html>';
@@ -13,7 +13,9 @@ const APP_JS = 'console.log("dashboard");';
 describe('launchpad server', () => {
   let publicDir: string;
   let server: Server;
+  let faas: Server;
   let base: string;
+  let faasBase: string;
 
   const get = (path: string, accept = '*/*') => fetch(base + path, { headers: { Accept: accept } });
 
@@ -30,6 +32,7 @@ describe('launchpad server', () => {
 
   after(() => {
     server.close();
+    faas?.close();
     rmSync(publicDir, { recursive: true, force: true });
   });
 
@@ -40,10 +43,36 @@ describe('launchpad server', () => {
     assert.match(res.headers.get('content-type') ?? '', /^application\/json/);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await res.json(), {
-      faasUrl: 'http://localhost:9001',
+      faasUrl: 'http://localhost:9000',
       token: 'local',
       mode: 'local',
     });
+  });
+
+  test('proxies API requests to the configured FaaS URL', async () => {
+    faas = createServer((req, res) => {
+      assert.equal(req.url, '/api/inspect');
+      assert.equal(req.headers.authorization, 'jwt local');
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{"deployments":[]}');
+    }).listen(0);
+    await new Promise<void>(resolve => faas.once('listening', resolve));
+    faasBase = `http://127.0.0.1:${(faas.address() as AddressInfo).port}`;
+
+    const proxyApp = createApp({ port: 9001, faasUrl: faasBase, publicDir });
+    const proxyServer = proxyApp.listen(0);
+    await new Promise<void>(resolve => proxyServer.once('listening', resolve));
+    const proxyBase = `http://127.0.0.1:${(proxyServer.address() as AddressInfo).port}`;
+
+    try {
+      const res = await fetch(`${proxyBase}/api/inspect`, {
+        headers: { Authorization: 'jwt local' },
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), { deployments: [] });
+    } finally {
+      proxyServer.close();
+    }
   });
 
   for (const path of ['/', '/deployments', '/deployments/x/logs']) {
