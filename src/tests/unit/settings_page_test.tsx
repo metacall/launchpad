@@ -12,6 +12,7 @@ vi.mock('@/lib/api-client', () => ({
     inspect: vi.fn().mockResolvedValue([]),
     listSubscriptionsDeploys: vi.fn().mockResolvedValue([]),
     changePassword: vi.fn(),
+    deleteAccount: vi.fn(),
   },
   getBaseUrl: vi.fn(() => 'http://localhost:9000'),
 }));
@@ -55,17 +56,33 @@ describe('SettingsPage delete account', () => {
     await waitFor(() => expect(api.listSubscriptionsDeploys).toHaveBeenCalled());
   };
 
-  it('signs the user out and redirects to /login when confirmed', async () => {
+  it('signs the user out and redirects to /login when confirmed and deletion succeeds', async () => {
+    vi.mocked(api.deleteAccount).mockResolvedValueOnce(true);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     await renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
 
+    await waitFor(() => expect(api.deleteAccount).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('auth-user')).toHaveTextContent('signed-out');
     expect(localStorage.getItem('faas_token')).toBeNull();
     expect(localStorage.getItem('faas_user_email')).toBeNull();
     expect(localStorage.getItem('faas_vat_id')).toBeNull();
     expect(window.location.href).toBe('/login');
+  });
+
+  it('keeps the session and shows an error when server deletion fails', async () => {
+    vi.mocked(api.deleteAccount).mockRejectedValueOnce(new Error('Account deletion failed'));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
+
+    expect(await screen.findByText('Account deletion failed')).toBeInTheDocument();
+    expect(screen.getByTestId('auth-user')).toHaveTextContent('alice@example.com');
+    expect(localStorage.getItem('faas_token')).toBe('token-1');
+    expect(localStorage.getItem('faas_vat_id')).toBe('ES123');
+    expect(window.location.href).toBe('http://localhost/settings');
   });
 
   it('keeps the session when the dialog is cancelled', async () => {
@@ -78,6 +95,7 @@ describe('SettingsPage delete account', () => {
     expect(localStorage.getItem('faas_token')).toBe('token-1');
     expect(localStorage.getItem('faas_user_email')).toBe('alice@example.com');
     expect(localStorage.getItem('faas_vat_id')).toBe('ES123');
+    expect(api.deleteAccount).not.toHaveBeenCalled();
     expect(window.location.href).toBe('http://localhost/settings');
   });
 });
