@@ -44,9 +44,6 @@ export default function DeployHubPage() {
     e.preventDefault();
   };
 
-  {
-    /* we make  also deployment page for small devices first, so we can hide some content on mobile for better UX and user friendly experience, and show more details on desktop */
-  }
   return (
     <div className="grow flex flex-col items-center justify-start p-6 pt-12 relative overflow-hidden animate-in fade-in duration-500 bg-white">
       <div className="max-w-4xl w-full z-10 flex flex-col gap-10">
