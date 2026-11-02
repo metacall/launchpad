@@ -1,19 +1,9 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plans } from '@metacall/protocol/plan';
-import { ArrowLeft, ChevronDown } from 'lucide-react';
-import { addMockSubscription } from '@/shared/lib/plan';
+import { ArrowLeft } from 'lucide-react';
 
 export default function PlanPage() {
   const navigate = useNavigate();
-  const [checkoutPlan, setCheckoutPlan] = useState<{
-    id: Plans;
-    name: string;
-    price: string;
-    color: string;
-  } | null>(null);
-  const [subscribing, setSubscribing] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const plans = [
     {
@@ -23,7 +13,6 @@ export default function PlanPage() {
       description: 'Ideal for prototyping and small projects.',
       color: 'bg-gradient-to-r from-slate-600 to-slate-400',
       borderColor: 'hover:border-slate-500',
-      buttonClass: 'bg-slate-600 hover:bg-slate-700',
       features: ['Unlimited Functions', 'Unlimited Builds', 'Medium Resources'],
     },
     {
@@ -33,7 +22,6 @@ export default function PlanPage() {
       description: 'Perfect for going to production with small and medium sized projects.',
       color: 'bg-gradient-to-r from-blue-700 to-blue-500',
       borderColor: 'hover:border-blue-600',
-      buttonClass: 'bg-blue-600 hover:bg-blue-700',
       features: ['Unlimited Functions', 'Unlimited Builds', 'High Resources'],
     },
     {
@@ -43,7 +31,6 @@ export default function PlanPage() {
       description: 'The most reliable plan for enterprise projects.',
       color: 'bg-gradient-to-r from-pink-600 to-purple-500',
       borderColor: 'hover:border-pink-600',
-      buttonClass: 'bg-pink-600 hover:bg-pink-700',
       features: [
         'Unlimited Functions',
         'Unlimited Builds',
@@ -52,59 +39,6 @@ export default function PlanPage() {
       ],
     },
   ];
-
-  const handleSelectPlan = (plan: (typeof plans)[0]) => {
-    setCheckoutPlan(plan);
-  };
-
-  const handleCloseCheckout = () => {
-    setCheckoutPlan(null);
-  };
-
-  const handleSubscribe = () => {
-    if (!checkoutPlan) return;
-    setSubscribing(true);
-    setTimeout(() => {
-      addMockSubscription(checkoutPlan.id);
-      setSubscribing(false);
-      setSuccess(true);
-      setTimeout(() => {
-        navigate('/settings');
-      }, 1500);
-    }, 1000);
-  };
-
-  if (success) {
-    return (
-      <div className="grow flex flex-col items-center justify-center p-6 animate-in fade-in duration-500 bg-white">
-        <div className="w-full max-w-md border border-slate-200 bg-white p-8 text-center shadow-lg rounded-lg">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg
-              className="w-8 h-8 text-green-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Subscription Activated!</h2>
-          <p className="text-sm text-slate-500 mb-4">
-            You have successfully subscribed to the{' '}
-            <span className="font-semibold text-slate-800">{checkoutPlan?.name}</span>.
-          </p>
-          <p className="text-xs text-blue-600 font-medium animate-pulse">
-            Redirecting to Settings page...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="grow flex flex-col items-center justify-start p-4 sm:p-10 sm:pt-1 animate-in fade-in duration-500 relative">
@@ -170,128 +104,17 @@ export default function PlanPage() {
 
               <div className="p-1">
                 <button
-                  onClick={() => handleSelectPlan(plan)}
-                  className={`w-full py-4 text-white font-bold text-[14px] transition-colors rounded-sm ${plan.buttonClass}`}
+                  type="button"
+                  disabled
+                  className="w-full py-4 text-slate-500 font-bold text-[14px] rounded-sm bg-slate-100 cursor-not-allowed"
                 >
-                  Select {plan.name.split(' ')[0]}
+                  Coming Soon
                 </button>
               </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Checkout Modal Overlay */}
-      {checkoutPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="bg-white border border-slate-300 w-full max-w-lg flex flex-col overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-6 pb-2">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Checkout</h2>
-                <button
-                  onClick={handleCloseCheckout}
-                  className="p-1 border border-slate-300 rounded hover:bg-slate-100 transition-colors text-slate-500"
-                >
-                  <ArrowLeft size={16} />
-                </button>
-              </div>
-
-              <div
-                className={`w-full ${checkoutPlan.color} text-white px-4 py-3 flex justify-between items-center mb-6`}
-              >
-                <span className="font-medium text-[13px]">
-                  Subscription €{checkoutPlan.price} / mo
-                </span>
-                <span className="text-[12px] font-bold">{checkoutPlan.name}</span>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="px-6 pb-6 overflow-y-auto max-h-[70vh]">
-              <h3 className="text-[13px] text-slate-600 mb-3">Payment details</h3>
-              <div className="flex items-center px-3 py-2.5 mb-6">
-                <div className="w-6 h-4 bg-slate-200 rounded flex items-center justify-center mr-3 shrink-0 text-[8px] text-slate-500 font-bold border border-slate-300">
-                  Card
-                </div>
-                <input
-                  type="text"
-                  placeholder="Card number"
-                  className="grow outline-none text-[13px] placeholder:text-slate-400"
-                />
-                <span className="text-[13px] text-slate-400 ml-2 shrink-0">MM / YY CVC</span>
-              </div>
-
-              <h3 className="text-[13px] text-slate-600 mb-3">Billing address</h3>
-              <div className="flex flex-col gap-3">
-                <input
-                  type="text"
-                  placeholder="Name"
-                  className="border border-slate-300 rounded px-3 py-2.5 text-[13px] outline-none focus:border-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Address"
-                  className="border border-slate-300 rounded px-3 py-2.5 text-[13px] outline-none focus:border-blue-500"
-                />
-                <div className="grid grid-cols-3 gap-0">
-                  <input
-                    type="text"
-                    placeholder="City"
-                    className="border-y border-l border-slate-300 rounded-l px-3 py-2.5 text-[13px] outline-none focus:border-blue-500 w-full"
-                  />
-                  <input
-                    type="text"
-                    placeholder="State"
-                    className="border border-slate-300 px-3 py-2.5 text-[13px] outline-none focus:border-blue-500 w-full"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Postal code"
-                    className="border-y border-r border-slate-300 rounded-r px-3 py-2.5 text-[13px] outline-none focus:border-blue-500 w-full"
-                  />
-                </div>
-                <div className="relative">
-                  <select className="border border-slate-300 rounded px-3 py-2.5 text-[13px] outline-none focus:border-blue-500 text-slate-600 appearance-none bg-white w-full pr-10">
-                    <option>Select Country...</option>
-                    <option>United States</option>
-                    <option>Spain</option>
-                    <option>United Kingdom</option>
-                    <option>Germany</option>
-                    <option>France</option>
-                  </select>
-                  <ChevronDown
-                    size={14}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <h3 className="text-[13px] text-slate-600 mb-2">Summary</h3>
-                <div className="flex items-end gap-2">
-                  <p className="font-bold text-slate-800 text-[14px]">Total €0.00</p>
-                </div>
-                <p className="text-[11px] text-slate-500">Includes 0% sales tax</p>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 flex flex-col items-end border-t border-slate-200 bg-slate-50">
-              <button
-                onClick={handleSubscribe}
-                disabled={subscribing}
-                className="bg-blue-600 hover:bg-blue-700 font-bold text-white text-[13px] py-1.5 px-6 rounded transition-colors mb-2 disabled:opacity-50"
-              >
-                {subscribing ? 'Processing...' : 'Subscribe'}
-              </button>
-              <p className="text-[10px] text-slate-500 text-right w-full">
-                Your card will be immediately charged €{checkoutPlan.price}.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
