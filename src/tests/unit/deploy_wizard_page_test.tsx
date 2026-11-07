@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor, act } from '@testing-library/react';
+import { render, waitFor, act, screen } from '@testing-library/react';
 import DeployWizardPage from '@/features/deployments/components/DeployWizard/index';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
 import JSZip from 'jszip';
+import { api } from '@/lib/api-client';
 
 // Mock dependencies
 vi.mock('@/lib/api-client', () => ({
@@ -101,6 +102,35 @@ describe('DeployWizardPage Toast Notifications', () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Deploy failed: Build crashed');
+    });
+  });
+
+  it('displays slot occupied warning when plan slot is already in use', async () => {
+    const file = await makeZipFile();
+    vi.mocked(api.listSubscriptions).mockResolvedValueOnce({ Essential: 1 });
+    vi.mocked(api.inspect).mockResolvedValueOnce([
+      {
+        prefix: 'metacall',
+        suffix: 'existing-app',
+        version: 'v1',
+        packages: {},
+        ports: [],
+        status: 'ready',
+      } as never,
+    ]);
+    localStorage.setItem(
+      'faas_deployment_plan_map',
+      JSON.stringify({ 'existing-app': 'Essential' }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Essential' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Launchpad Slot Occupied')).toBeInTheDocument();
     });
   });
 });

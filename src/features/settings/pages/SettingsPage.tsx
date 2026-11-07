@@ -18,7 +18,7 @@ import { api, getBaseUrl } from '@/lib/api-client';
 import { isLocalMode } from '@/app/config/runtime';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
-import { normalizePlan } from '@/shared/lib/plan';
+import { resolveDeploymentPlan } from '@/shared/lib/plan';
 import { downloadInvoicePDF, formatInvoiceNumber } from '../utils/invoice';
 import { LocalModeSettings } from '../components/LocalModeSettings';
 import type { Deployment } from '@/shared/types';
@@ -636,11 +636,7 @@ export default function SettingsPage() {
                     activePaidSubscriptionsList.map(item => {
                       const associatedDeploy = item.deploy
                         ? { suffix: item.deploy }
-                        : deployments.find(
-                            d =>
-                              normalizePlan((d as Deployment & { plan?: string }).plan) ===
-                              item.planName,
-                          );
+                        : deployments.find(d => resolveDeploymentPlan(d) === item.planName);
                       const deployText = associatedDeploy ? (
                         <span
                           className="font-semibold text-blue-600 underline hover:text-blue-800 cursor-pointer"

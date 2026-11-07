@@ -27,6 +27,7 @@ import {
   getPlanLabel,
   normalizePlan,
   readStoredPlan,
+  resolveDeploymentPlan,
   toDeployPlan,
   writeDeploymentPlan,
   writeStoredPlan,
@@ -145,9 +146,7 @@ export default function DeployWizardPage() {
         navigate('/plans', { replace: true });
         return;
       }
-      const activeCount = deployments.filter(
-        d => normalizePlan((d as Deployment & { plan?: string }).plan) === plan,
-      ).length;
+      const activeCount = deployments.filter(d => resolveDeploymentPlan(d) === plan).length;
       if (activeCount >= (subscriptions[plan] || 0)) {
         setSlotOccupied(true);
       }

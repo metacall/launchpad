@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, LogOut, Menu, X, Eye, User } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { isLocalMode } from '@/app/config/runtime';
 
 const navBtnStyle = {
   color: 'var(--color-text-muted)',
@@ -76,15 +77,17 @@ export function Navbar() {
             </button>
           )}
 
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-150"
-            style={navBtnStyle}
-            onMouseEnter={hoverOn}
-            onMouseLeave={hoverOff}
-          >
-            Logout <LogOut size={13} strokeWidth={1.8} />
-          </button>
+          {!isLocalMode() && (
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-150"
+              style={navBtnStyle}
+              onMouseEnter={hoverOn}
+              onMouseLeave={hoverOff}
+            >
+              Logout <LogOut size={13} strokeWidth={1.8} />
+            </button>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -136,15 +139,17 @@ export function Navbar() {
               </button>
             )}
 
-            <button
-              onClick={() => {
-                setMenuOpenForPath(null);
-                logout();
-              }}
-              className="flex items-center gap-2 min-h-11 px-5 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors text-left"
-            >
-              <LogOut size={15} strokeWidth={1.8} /> Logout
-            </button>
+            {!isLocalMode() && (
+              <button
+                onClick={() => {
+                  setMenuOpenForPath(null);
+                  logout();
+                }}
+                className="flex items-center gap-2 min-h-11 px-5 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors text-left"
+              >
+                <LogOut size={15} strokeWidth={1.8} /> Logout
+              </button>
+            )}
           </div>
         </div>
       )}
