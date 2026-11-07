@@ -95,12 +95,27 @@ test.describe('Dashboard — Launchpad Grid', () => {
 
   test('three paid plan slot cards are rendered', async ({ page }) => {
     await mockAPIs(page);
+    // Registered last, so it takes precedence over the catch-all mock
+    await page.route('**/api/billing/list-subscriptions', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(['Essential', 'Standard', 'Premium']),
+      }),
+    );
     await page.goto('/');
 
-    // Essential, Standard, Premium plan labels appear in the plan slot headers
-    await expect(page.getByText('Essential', { exact: false }).first()).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByText('Standard', { exact: false }).first()).toBeVisible();
-    await expect(page.getByText('Premium', { exact: false }).first()).toBeVisible();
+    // With a subscription, each slot header shows its plan label
+    await expect(page.getByText('Essential Plan')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('Standard Plan')).toBeVisible();
+    await expect(page.getByText('Premium Plan')).toBeVisible();
+  });
+
+  test('paid plan slots are locked when there is no subscription', async ({ page }) => {
+    await mockAPIs(page);
+    await page.goto('/');
+
+    await expect(page.getByText('Locked slot')).toHaveCount(3, { timeout: 8_000 });
   });
 
   test('clicking New Deploy card navigates to new deployment page', async ({ page }) => {
@@ -143,26 +158,12 @@ test.describe('Dashboard — Empty State & Loading', () => {
 
 test.describe('Dashboard — Plan Slot Interactions', () => {
   test('clicking an empty paid plan slot when no subscription navigates to /plans', async ({ page }) => {
-    // Mock listSubscriptions to return an empty object (no subscriptions)
-    await page.route('**/api/**', route => {
-      const url = route.request().url();
-      if (url.includes('subscriptions')) {
-        return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-      }
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
+    // The default mock returns [] for list-subscriptions, so every paid slot is locked
+    await mockAPIs(page);
     await page.goto('/');
 
-    // Wait for the page to settle after subscription load
-    await page.waitForTimeout(500);
+    await page.getByText('Activate Plan').first().click({ timeout: 8_000 });
 
-    // Click the first paid plan card
-    const essentialCard = page.locator('text=Essential', { exact: false }).first().locator('../..');
-    if (await essentialCard.isVisible().catch(() => false)) {
-      await essentialCard.click();
-      // May navigate to /plans or /deployments/new depending on subscription state
-      await expect(page).toHaveURL(/\/(plans|deployments)/, { timeout: 8_000 });
-    }
+    await expect(page).toHaveURL(/\/plans/, { timeout: 8_000 });
   });
 });
