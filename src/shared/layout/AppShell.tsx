@@ -9,7 +9,7 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="flex flex-col min-h-screen bg-[--color-bg] relative">
+    <div className="flex flex-col min-h-screen w-full overflow-x-hidden bg-[--color-bg] relative">
       <Navbar />
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 pt-0.5 sm:pt-2 pb-8 sm:px-4 md:px-14 md:pb-10 flex flex-col">
         {children}
