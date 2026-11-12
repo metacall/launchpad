@@ -132,6 +132,7 @@ let _unauthorizedFired = false;
 /** Called once on app mount (from AppProviders) to register the logout callback. */
 export function setUnauthorizedHandler(cb: UnauthorizedHandler): void {
   _unauthorizedHandler = cb;
+  _unauthorizedFired = false;
 }
 
 /**

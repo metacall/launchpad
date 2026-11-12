@@ -243,6 +243,7 @@ export default function SettingsPage() {
       await api.deleteAccount();
       localStorage.removeItem('faas_vat_id');
       logout();
+      navigate('/login');
     } catch (err: unknown) {
       const error = err as Error;
       setFeedbackMessage({
