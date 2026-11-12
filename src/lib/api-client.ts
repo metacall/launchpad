@@ -18,7 +18,7 @@ import type { Deployment, MetaCallJSON, Plans } from '@/shared/types';
 
 import { LS_TOKEN_KEY, LS_FAAS_URL_KEY } from '@/shared/constants';
 import { env } from '@/app/config/env';
-import { getRuntimeConfig } from '@/app/config/runtime';
+import { getRuntimeConfig, isLocalMode } from '@/app/config/runtime';
 
 const TOKEN_KEY = LS_TOKEN_KEY;
 
@@ -33,6 +33,12 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   const newInit = { ...init };
 
   const res = await fetch(input, newInit);
+
+  if (res.status === 401) {
+    notifyUnauthorized();
+  } else if (res.ok) {
+    resetUnauthorizedFired();
+  }
 
   if (!res.ok && (urlStr.includes('/login') || urlStr.includes('/signup'))) {
     try {
@@ -116,6 +122,40 @@ export function isAbortError(err: unknown): err is Error {
   return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
 }
 
+// --- 401 auto-logout plumbing ---
+
+type UnauthorizedHandler = () => void;
+
+let _unauthorizedHandler: UnauthorizedHandler | null = null;
+let _unauthorizedFired = false;
+
+/** Called once on app mount (from AppProviders) to register the logout callback. */
+export function setUnauthorizedHandler(cb: UnauthorizedHandler): void {
+  _unauthorizedHandler = cb;
+  _unauthorizedFired = false;
+}
+
+/**
+ * Reset the single-fire guard.
+ * Called after any successful (2xx) response so a future token expiry
+ * can trigger the handler again.
+ */
+export function resetUnauthorizedFired(): void {
+  _unauthorizedFired = false;
+}
+
+/**
+ * Fire the unauthorized handler exactly once per "session".
+ * No-ops in local mode and when no handler has been registered.
+ */
+export function notifyUnauthorized(): void {
+  if (isLocalMode()) return;
+  if (_unauthorizedFired) return;
+  if (!_unauthorizedHandler) return;
+  _unauthorizedFired = true;
+  _unauthorizedHandler();
+}
+
 async function responseErrorMessage(response: Response, fallback: string): Promise<string> {
   const text = await response.text().catch(() => '');
   const trimmed = text.trim();
@@ -142,6 +182,9 @@ async function responseErrorMessage(response: Response, fallback: string): Promi
 }
 
 function mapError(err: unknown): never {
+  if (isProtocolError(err) && err.status === 401) {
+    notifyUnauthorized();
+  }
   if (err instanceof ApiError) {
     throw err;
   }
@@ -152,6 +195,14 @@ function mapError(err: unknown): never {
     throw new ApiError('Unable to reach the server. Check your connection or CORS configuration.');
   }
   if (err instanceof Error) {
+    // Protocol throws plain Error for HTTP failures (e.g. "HTTP 401: Unauthorized").
+    // Extract the status and notify if it is 401.
+    const m = /^HTTP (\d+):/.exec(err.message);
+    if (m) {
+      const status = parseInt(m[1], 10);
+      if (status === 401) notifyUnauthorized();
+      throw new ApiError(err.message, status);
+    }
     throw new ApiError(err.message);
   }
   throw new ApiError(String(err));
@@ -225,6 +276,8 @@ export const api = {
           Authorization: `jwt ${getToken()}`,
         },
       });
+      if (response.status === 401) notifyUnauthorized();
+      else if (response.ok) resetUnauthorizedFired();
       if (response.ok) {
         const data = (await response.json()) as unknown;
         if (Array.isArray(data) && data.length > 0) return data as SubscriptionDeploy[];
@@ -389,7 +442,10 @@ export const api = {
         signal: _signal,
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        resetUnauthorizedFired();
+      } else {
+        if (response.status === 401) notifyUnauthorized();
         const data = await response.text().catch(() => null);
         throw new ApiError(
           `HTTP ${response.status}: ${response.statusText}${data ? ` - ${data}` : ''}`,
@@ -431,7 +487,10 @@ export const api = {
         body: args === undefined || args.length === 0 ? undefined : JSON.stringify(args),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        resetUnauthorizedFired();
+      } else {
+        if (response.status === 401) notifyUnauthorized();
         const data = await response.text().catch(() => null);
         throw new ApiError(
           `HTTP ${response.status}: ${response.statusText}${data ? ` - ${data}` : ''}`,

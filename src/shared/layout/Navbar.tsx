@@ -144,6 +144,7 @@ export function Navbar() {
                 onClick={() => {
                   setMenuOpenForPath(null);
                   logout();
+                  navigate('/login');
                 }}
                 className="flex items-center gap-2 min-h-11 px-5 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors text-left"
               >
