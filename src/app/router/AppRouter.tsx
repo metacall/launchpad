@@ -104,8 +104,8 @@ export function AppRouter() {
             <Route path="new" element={<DeployHubPage />} />
             <Route path="new/wizard" element={<DeployWizardPage />} />
             <Route path="new/repository" element={<DeployRepositoryPage />} />
-            <Route path=":id" element={<DeploymentDetailPage />} />
-            <Route path=":id/logs" element={<LogsViewerPage />} />
+            <Route path=":suffix" element={<DeploymentDetailPage />} />
+            <Route path=":suffix/logs" element={<LogsViewerPage />} />
           </Route>
 
           <Route path="/settings" element={<SettingsPage />} />

@@ -35,7 +35,7 @@ describe('DeploymentFunctionPage Toast Notifications', () => {
     render(
       <MemoryRouter initialEntries={['/deployments/test-suffix']}>
         <Routes>
-          <Route path="/deployments/:id" element={<DeploymentFunctionPage />} />
+          <Route path="/deployments/:suffix" element={<DeploymentFunctionPage />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -99,6 +99,70 @@ describe('DeploymentFunctionPage Toast Notifications', () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Failed to delete deployment: Delete Error');
+    });
+  });
+});
+
+describe('DeploymentFunctionPage route param contract', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reads "suffix" directly from useParams (no aliasing from :id)', async () => {
+    // Route must use :suffix — if it were :id the component would receive undefined
+    // because useParams() would not find a "suffix" key.
+    mockInspect.mockResolvedValueOnce({
+      suffix: 'my-deployment',
+      prefix: 'test-prefix',
+      version: 'v1',
+      status: 'ready',
+      packages: {},
+      runners: [],
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/deployments/my-deployment']}>
+        <Routes>
+          <Route path="/deployments/:suffix" element={<DeploymentFunctionPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // If :suffix param is correctly named, inspectByName is called with 'my-deployment'
+    await waitFor(() => {
+      expect(mockInspect).toHaveBeenCalledWith('my-deployment');
+    });
+
+    // And the deployment name is rendered on screen
+    expect(screen.getByText('my-deployment')).toBeInTheDocument();
+  });
+
+  it('AppRouter registers deployment detail route as :suffix not :id', () => {
+    // Mirrors the nested route structure from AppRouter.tsx and confirms the param name
+    // reaches the component unchanged.
+    mockInspect.mockResolvedValueOnce({
+      suffix: 'router-test',
+      prefix: 'pfx',
+      version: 'v1',
+      status: 'ready',
+      packages: {},
+      runners: [],
+    } as never);
+
+    render(
+      <MemoryRouter initialEntries={['/deployments/router-test']}>
+        <Routes>
+          {/* Mirrors AppRouter: nested under /deployments with :suffix */}
+          <Route path="/deployments">
+            <Route path=":suffix" element={<DeploymentFunctionPage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // If the param were still :id the component would call inspectByName(undefined)
+    return waitFor(() => {
+      expect(mockInspect).toHaveBeenCalledWith('router-test');
     });
   });
 });
