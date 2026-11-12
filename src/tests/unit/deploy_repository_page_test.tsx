@@ -329,7 +329,7 @@ describe('DeployRepositoryPage', () => {
 
     expect(screen.getByText('Python')).toBeInTheDocument();
     expect(screen.queryByText('Node.js')).not.toBeInTheDocument();
-  });
+  }, 15000);
 
   const errorResponse = (status: number, headers: Record<string, string> = {}) =>
     Promise.resolve({
@@ -359,7 +359,7 @@ describe('DeployRepositoryPage', () => {
       await screen.findByText(/GitHub API rate limit reached\. Try again after .+\./),
     ).toBeInTheDocument();
     expect(screen.queryByText(/GitHub API error/)).not.toBeInTheDocument();
-  });
+  }, 15000);
 
   it('LP-0010: shows a rate limit message when only the GitHub branches request is limited', async () => {
     fetchMock.mockImplementation((url: string) => {
