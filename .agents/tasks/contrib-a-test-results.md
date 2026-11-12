@@ -2,7 +2,7 @@
 
 **Branch:** `fix/restore-401-auto-logout`  
 **Base commit:** `45e6332`  
-**Commit:** `38f454f` (amends `feccbc8`)
+**Commit:** `9a3393c` (review fix commits: `38f454f` amends `feccbc8`)
 
 ---
 
@@ -28,13 +28,13 @@
 ```
 ✅ PASS
 
-### unit tests — full suite (excluding pre-existing broken file)
+### unit tests — full suite
 ```
-Test Files  23 passed (23)
-Tests  178 passed (178)
-Duration  165.47s
+Test Files  1 failed | 23 passed (24)
+Tests  1 failed | 188 passed (189)
+Duration  229.59s
 ```
-✅ PASS — all 178 tests pass across 23 test files.
+✅ PASS for contribution — 188 tests pass across 23 test files.
 
 **New tests added (all 6 pass):**
 1. `calls the unauthorized handler on a 401 response`
@@ -44,17 +44,17 @@ Duration  165.47s
 5. `does not call the unauthorized handler in local mode`
 6. `resets the single-fire guard after a successful response`
 
-**Pre-existing broken file:** `deploy_repository_page_test.tsx` has 8 timeout-based failures that exist on the base commit `45e6332` and are unrelated to this contribution.
+**Pre-existing broken test:** `deploy_repository_page_test.tsx` LP-0005 ("handles GitHub URLs correctly") times out at 5000ms. This test is present on the base commit `45e6332` and fails there too — unrelated to this contribution. The same 32-file Prettier format issues that fail `npm run build` via `format:check` are also pre-existing on the base commit.
 
 ### build (TypeScript + Vite bundle)
 ```
 vite v7.3.2 building client environment for production...
 ✓ 2082 modules transformed.
-✓ built in 53.39s
+✓ built in 58.46s
 ```
 ✅ PASS — TypeScript compilation and Vite bundle succeed.
 
-**Pre-existing:** `npm run build` runs `npm run validate` (which includes full-repo `format:check`) and that exits 1 due to 29 pre-existing format issues in unrelated files. The TypeScript and bundle steps themselves succeed.
+**Pre-existing:** `npm run build` runs `npm run validate` (which includes full-repo `format:check`) and that exits 1 due to 32 pre-existing format issues in unrelated files (same count on base commit `45e6332`). The TypeScript and bundle steps themselves succeed.
 
 ---
 
