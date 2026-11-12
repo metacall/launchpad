@@ -429,4 +429,96 @@ describe('api-client', () => {
       expect(localStorage.getItem('faas_token')).toBe('refreshed-new-token');
     });
   });
+
+  describe('401 auto-logout handler', () => {
+    async function loadApiWithHandler() {
+      vi.resetModules();
+      const mod = await import('@/lib/api-client');
+      return { api: mod.api, set: mod.setUnauthorizedHandler, reset: mod.resetUnauthorizedFired };
+    }
+
+    it('calls the unauthorized handler on a 401 response', async () => {
+      const { api, set } = await loadApiWithHandler();
+      const handler = vi.fn();
+      set(handler);
+
+      mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+      await expect(api.inspect()).rejects.toBeDefined();
+
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call the unauthorized handler on a 403 response', async () => {
+      const { api, set } = await loadApiWithHandler();
+      const handler = vi.fn();
+      set(handler);
+
+      mockFetch.mockResolvedValueOnce(makeResponse(403, { error: 'Forbidden' }));
+      await expect(api.deleteAccount()).rejects.toBeDefined();
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('does not call the unauthorized handler on a 500 response', async () => {
+      const { api, set } = await loadApiWithHandler();
+      const handler = vi.fn();
+      set(handler);
+
+      mockFetch.mockResolvedValueOnce(makeResponse(500, { error: 'Server error' }));
+      await expect(api.deleteAccount()).rejects.toBeDefined();
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('calls the unauthorized handler at most once for concurrent 401 responses', async () => {
+      const { api, set } = await loadApiWithHandler();
+      const handler = vi.fn();
+      set(handler);
+
+      // Both requests return 401 simultaneously
+      mockFetch.mockResolvedValue(makeResponse(401, { error: 'Unauthorized' }));
+      await Promise.allSettled([api.inspect(), api.inspect()]);
+
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call the unauthorized handler in local mode', async () => {
+      vi.resetModules();
+      // Patch runtime module so isLocalMode() returns true before api-client loads
+      vi.doMock('@/app/config/runtime', async importOriginal => {
+        const original = await importOriginal<typeof import('@/app/config/runtime')>();
+        return { ...original, isLocalMode: () => true };
+      });
+      const { api: localApi, set } = await loadApiWithHandler();
+      const handler = vi.fn();
+      set(handler);
+
+      mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+      await expect(localApi.inspect()).rejects.toBeDefined();
+
+      expect(handler).not.toHaveBeenCalled();
+      vi.doUnmock('@/app/config/runtime');
+    });
+
+    it('resets the single-fire guard after a successful response', async () => {
+      const { api, set } = await loadApiWithHandler();
+      const handler = vi.fn();
+      set(handler);
+
+      // First 401 → fires handler
+      mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+      await expect(api.deleteAccount()).rejects.toBeDefined();
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      // Successful request → resets the fired flag
+      mockFetch.mockResolvedValueOnce(makeResponse(200, { deleted: true }));
+      localStorage.setItem('faas_token', 'new-token');
+      await expect(api.deleteAccount()).resolves.toBe(true);
+
+      // Second 401 → fires handler again
+      mockFetch.mockResolvedValueOnce(makeResponse(401, { error: 'Unauthorized' }));
+      await expect(api.deleteAccount()).rejects.toBeDefined();
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+  });
 });
