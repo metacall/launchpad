@@ -37,7 +37,7 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
 
 // Page
 export default function DeploymentDetailPage() {
-  const { id: suffix } = useParams();
+  const { suffix } = useParams();
   const navigate = useNavigate();
 
   const [deployment, setDeployment] = useState<Deployment | null>(null);
