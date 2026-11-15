@@ -34,7 +34,8 @@ export function useDeploymentMonitor({ target, onReady, onFailed }: UseDeploymen
     let stopped = false;
     let timeoutId: number | null = null;
     let activeController: AbortController | null = null;
-    const startedAt = Date.now();
+    const parsedStartedAt = Date.parse(target.startedAt);
+    const startedAt = Number.isFinite(parsedStartedAt) ? parsedStartedAt : Date.now();
     const maxMonitorDurationMs = 10 * 60 * 1000;
 
     const poll = async () => {

@@ -145,7 +145,7 @@ export function ChatInterface() {
           <button
             onClick={handleSend}
             disabled={!input.trim() || isTyping}
-            className="inline-flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-5xl px-3 py-2 shadow-md transition-transform active:scale-95"
+            className="inline-flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-5xl px-3 py-2 shadow-md transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             aria-label="Send"
           >
             <Send size={18} className="-mr-0.4" />
