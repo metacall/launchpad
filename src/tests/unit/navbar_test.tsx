@@ -1,14 +1,52 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/shared/layout/Navbar';
 import { AuthProvider } from '@/features/auth/hooks/useAuth';
 import { applyRuntimeConfig } from '@/app/config/runtime';
 
+function RouteChangeButton() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate('/settings')}>Change route</button>;
+}
+
 describe('Navbar component', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.clearAllMocks();
+    applyRuntimeConfig({});
+  });
+
+  it('closes automatically when the route changes', () => {
+    localStorage.setItem('faas_token', 'jwt-token-123');
+    localStorage.setItem('faas_user_email', 'alice@example.com');
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <Navbar />
+        </AuthProvider>
+        <RouteChangeButton />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle menu' }));
+    expect(screen.getAllByText('alice@example.com')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change route' }));
+    expect(screen.getAllByText('alice@example.com')).toHaveLength(1);
+  });
+
+  it('uses a 44px mobile menu button', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthProvider>
+          <Navbar />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+    const menuButton = screen.getByRole('button', { name: 'Toggle menu' });
+    expect(menuButton).toHaveClass('w-11', 'h-11');
   });
 
   it('renders user email and logout button in standard authenticated mode', () => {

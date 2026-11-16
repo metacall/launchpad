@@ -68,6 +68,13 @@ function getPlanClasses(plan?: string) {
   return PLAN_CLASSES[normalizePlan(plan)] ?? PLAN_CLASSES[Plans.Essential];
 }
 
+function hasActiveSubscription(subscriptions: Record<string, number>, plan: string): boolean {
+  return Object.entries(subscriptions).some(
+    ([subscriptionPlan, count]) =>
+      count > 0 && normalizePlan(subscriptionPlan) === normalizePlan(plan),
+  );
+}
+
 // Deploy row
 function DeployRow({ onClick, plusHover }: { onClick: () => void; plusHover: string }) {
   return (
@@ -379,10 +386,10 @@ export default function DashboardPage() {
                         (d as unknown as Record<string, unknown>).plan as string | undefined,
                       ) === planId,
                   )}
-                  hasSubscription={Boolean(subscriptions[planId] && subscriptions[planId] > 0)}
+                  hasSubscription={hasActiveSubscription(subscriptions, planId)}
                   onClick={() => {
-                    writeStoredPlan(planId);
-                    if (subscriptions[planId]) {
+                    if (hasActiveSubscription(subscriptions, planId)) {
+                      writeStoredPlan(planId);
                       navigate('/deployments/new', { state: { plan: planId } });
                     } else {
                       navigate('/plans', { state: { plan: planId } });

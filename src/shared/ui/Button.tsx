@@ -25,9 +25,9 @@ const VARIANT_CLASSES: Record<Variant, string> = {
 };
 
 const SIZE_CLASSES: Record<Size, string> = {
-  sm: 'px-3 py-1.5 text-xs gap-1.5',
-  md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-6 py-2.5 text-sm font-bold uppercase tracking-wider gap-2',
+  sm: 'min-h-11 px-3 py-1.5 text-xs gap-1.5',
+  md: 'min-h-11 px-4 py-2 text-sm gap-2',
+  lg: 'min-h-11 px-6 py-2.5 text-sm font-bold uppercase tracking-wider gap-2',
 };
 
 export function Button({
