@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/hooks/useAuth';
 import SettingsPage from '@/features/settings/pages/SettingsPage';
-import { api, getBaseUrl } from '@/lib/api-client';
+import { api } from '@/lib/api-client';
 import { applyRuntimeConfig, isLocalMode } from '@/app/config/runtime';
 
 vi.mock('@/lib/api-client', () => ({
@@ -225,15 +225,24 @@ describe('SettingsPage in local mode', () => {
 });
 
 describe('SettingsPage FaaS URL card', () => {
+  const originalLocation = window.location;
+  const reload = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem('faas_token', 'token-1');
     localStorage.setItem('faas_user_email', 'alice@example.com');
+    // jsdom cannot reload the page
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...originalLocation, reload },
+    });
   });
 
   afterEach(() => {
     applyRuntimeConfig({});
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
   });
 
   const renderPage = async () => {
@@ -291,43 +300,59 @@ describe('SettingsPage FaaS URL card', () => {
     expect(screen.getByText('FaaS URL reset.')).toBeInTheDocument();
   });
 
-  it('says when the runtime config overrides the saved URL', async () => {
+  it('reloads the page after a save', async () => {
+    await renderPage();
+
+    saveUrl('http://other-faas:9000');
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloads the page after a reset', async () => {
+    localStorage.setItem('faas_url', 'http://saved-faas:9000');
+    await renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reload when the URL is invalid', async () => {
+    await renderPage();
+
+    saveUrl('not a url');
+
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('locks the field when the runtime config sets the URL', async () => {
+    localStorage.setItem('faas_url', 'http://saved-faas:9000');
     applyRuntimeConfig({ faasUrl: 'http://localhost:9100' });
     await renderPage();
 
+    expect(screen.getByLabelText('FaaS URL')).toBeDisabled();
+    expect(screen.getByLabelText('FaaS URL')).toHaveValue('http://localhost:9100');
+    expect(screen.getByRole('button', { name: 'Save URL' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
     expect(
-      screen.getByText(/runtime config is using http:\/\/localhost:9100/i),
+      screen.getByText(/managed by the launchpad runtime config.*http:\/\/localhost:9100/i),
     ).toBeInTheDocument();
   });
 
-  it('does not mention an override when the runtime config has no URL', async () => {
+  it('leaves the field editable when the runtime config has no URL', async () => {
     await renderPage();
 
-    expect(screen.queryByText(/runtime config is using/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('FaaS URL')).toBeEnabled();
+    expect(screen.queryByText(/managed by the launchpad runtime config/i)).not.toBeInTheDocument();
   });
 
-  it('works in local mode and marks the runtime URL as the one in use', async () => {
+  it('locks the field in local mode when the runtime config sets the URL', async () => {
     localStorage.clear();
     applyRuntimeConfig({ mode: 'local', faasUrl: 'http://localhost:9000' });
     await renderPage();
 
-    expect(
-      screen.getByText(/runtime config is using http:\/\/localhost:9000/i),
-    ).toBeInTheDocument();
-    saveUrl('http://other-faas:9000/');
-
-    expect(localStorage.getItem('faas_url')).toBe('http://other-faas:9000');
+    expect(screen.getByLabelText('FaaS URL')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save URL' })).toBeDisabled();
     expect(screen.getByText(/no account in local mode/i)).toBeInTheDocument();
-  });
-
-  it('refreshes the local mode URL display after a save', async () => {
-    localStorage.clear();
-    applyRuntimeConfig({ mode: 'local' });
-    await renderPage();
-
-    vi.mocked(getBaseUrl).mockReturnValueOnce('http://other-faas:9000');
-    saveUrl('http://other-faas:9000');
-
-    expect(screen.getByText('http://other-faas:9000')).toBeInTheDocument();
   });
 });
