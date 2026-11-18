@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/hooks/useAuth';
 import SettingsPage from '@/features/settings/pages/SettingsPage';
 import { api } from '@/lib/api-client';
+import { applyRuntimeConfig } from '@/app/config/runtime';
 
 vi.mock('@/lib/api-client', () => ({
   api: {
@@ -11,7 +12,9 @@ vi.mock('@/lib/api-client', () => ({
     inspect: vi.fn().mockResolvedValue([]),
     listSubscriptionsDeploys: vi.fn().mockResolvedValue([]),
     changePassword: vi.fn(),
+    deleteAccount: vi.fn(),
   },
+  getBaseUrl: vi.fn(() => 'http://localhost:9000'),
 }));
 
 // Exposes the auth state that ProtectedRoute relies on
@@ -53,17 +56,33 @@ describe('SettingsPage delete account', () => {
     await waitFor(() => expect(api.listSubscriptionsDeploys).toHaveBeenCalled());
   };
 
-  it('signs the user out and redirects to /login when confirmed', async () => {
+  it('signs the user out and redirects to /login when confirmed and deletion succeeds', async () => {
+    vi.mocked(api.deleteAccount).mockResolvedValueOnce(true);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     await renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
 
+    await waitFor(() => expect(api.deleteAccount).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('auth-user')).toHaveTextContent('signed-out');
     expect(localStorage.getItem('faas_token')).toBeNull();
     expect(localStorage.getItem('faas_user_email')).toBeNull();
     expect(localStorage.getItem('faas_vat_id')).toBeNull();
     expect(window.location.href).toBe('/login');
+  });
+
+  it('keeps the session and shows an error when server deletion fails', async () => {
+    vi.mocked(api.deleteAccount).mockRejectedValueOnce(new Error('Account deletion failed'));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
+
+    expect(await screen.findByText('Account deletion failed')).toBeInTheDocument();
+    expect(screen.getByTestId('auth-user')).toHaveTextContent('alice@example.com');
+    expect(localStorage.getItem('faas_token')).toBe('token-1');
+    expect(localStorage.getItem('faas_vat_id')).toBe('ES123');
+    expect(window.location.href).toBe('http://localhost/settings');
   });
 
   it('keeps the session when the dialog is cancelled', async () => {
@@ -76,6 +95,7 @@ describe('SettingsPage delete account', () => {
     expect(localStorage.getItem('faas_token')).toBe('token-1');
     expect(localStorage.getItem('faas_user_email')).toBe('alice@example.com');
     expect(localStorage.getItem('faas_vat_id')).toBe('ES123');
+    expect(api.deleteAccount).not.toHaveBeenCalled();
     expect(window.location.href).toBe('http://localhost/settings');
   });
 });
@@ -137,5 +157,69 @@ describe('SettingsPage password update', () => {
     expect(fields.current).toHaveValue('');
     expect(fields.next).toHaveValue('');
     expect(fields.confirmation).toHaveValue('');
+  });
+});
+
+describe('SettingsPage in local mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    applyRuntimeConfig({ mode: 'local', faasUrl: 'http://localhost:9000' });
+  });
+
+  afterEach(() => {
+    applyRuntimeConfig({});
+  });
+
+  const renderPage = () =>
+    render(
+      <MemoryRouter initialEntries={['/settings']}>
+        <AuthProvider>
+          <SettingsPage />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+
+  it('shows the local mode notice and the FaaS URL', () => {
+    renderPage();
+
+    expect(screen.getByText(/no account in local mode/i)).toBeInTheDocument();
+    expect(screen.getByText('http://localhost:9000')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /dashboard\.metacall\.io/i })).toHaveAttribute(
+      'href',
+      'https://dashboard.metacall.io',
+    );
+  });
+
+  it('hides the account, security and billing panels', () => {
+    renderPage();
+
+    expect(screen.queryByText('CLI Token')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh token/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /update password/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Company VAT')).not.toBeInTheDocument();
+    expect(screen.queryByText('Billing History')).not.toBeInTheDocument();
+    expect(screen.queryByText('Active Subscriptions')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /upgrade plan/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete account/i })).not.toBeInTheDocument();
+  });
+
+  it('does not load billing data', () => {
+    renderPage();
+
+    expect(api.listSubscriptions).not.toHaveBeenCalled();
+    expect(api.inspect).not.toHaveBeenCalled();
+    expect(api.listSubscriptionsDeploys).not.toHaveBeenCalled();
+  });
+
+  it('keeps the account panels outside local mode', async () => {
+    applyRuntimeConfig({});
+    localStorage.setItem('faas_token', 'token-1');
+    localStorage.setItem('faas_user_email', 'alice@example.com');
+    renderPage();
+
+    await waitFor(() => expect(api.listSubscriptionsDeploys).toHaveBeenCalled());
+    expect(screen.getByText('CLI Token')).toBeInTheDocument();
+    expect(screen.queryByText(/no account in local mode/i)).not.toBeInTheDocument();
   });
 });

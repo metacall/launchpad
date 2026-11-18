@@ -14,11 +14,13 @@ import {
   Download,
 } from 'lucide-react';
 import { CopyButton } from '@/shared/ui/CopyButton';
-import { api } from '@/lib/api-client';
+import { api, getBaseUrl } from '@/lib/api-client';
+import { isLocalMode } from '@/app/config/runtime';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { LS_TOKEN_KEY, LS_EMAIL_KEY } from '@/shared/constants';
-import { normalizePlan } from '@/shared/lib/plan';
+import { resolveDeploymentPlan } from '@/shared/lib/plan';
 import { downloadInvoicePDF, formatInvoiceNumber } from '../utils/invoice';
+import { LocalModeSettings } from '../components/LocalModeSettings';
 import type { Deployment } from '@/shared/types';
 import type { SubscriptionDeploy } from '@metacall/protocol';
 
@@ -71,6 +73,7 @@ const PdfIcon = ({ className = '', size = 16 }: PdfIconProps) => (
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const localMode = isLocalMode();
   const [email] = useState(() => localStorage.getItem(LS_EMAIL_KEY) ?? 'example@gmail.com');
   const [vatId, setVatId] = useState(() => localStorage.getItem('faas_vat_id') ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -103,8 +106,10 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
+    // Local FaaS has no billing, so there is nothing to load
+    if (localMode) return;
     fetchSettingsData();
-  }, [fetchSettingsData]);
+  }, [fetchSettingsData, localMode]);
 
   const billingHistory = useMemo(() => {
     if (subDeploys.length > 0) {
@@ -230,11 +235,24 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    if (!confirm('Delete local account data and sign out?')) return;
-    localStorage.removeItem('faas_vat_id');
-    logout();
+  const handleDeleteAccount = async () => {
+    if (!confirm('Permanently delete your account? This action cannot be undone.')) return;
+
+    setFeedbackMessage(null);
+    try {
+      await api.deleteAccount();
+      localStorage.removeItem('faas_vat_id');
+      logout();
+    } catch (err: unknown) {
+      const error = err as Error;
+      setFeedbackMessage({
+        type: 'error',
+        text: error.message || 'Failed to delete account.',
+      });
+    }
   };
+
+  if (localMode) return <LocalModeSettings faasUrl={getBaseUrl()} />;
 
   return (
     <div className="grow flex flex-col items-center justify-start p-4 bg-white animate-in fade-in duration-500">
@@ -630,11 +648,7 @@ export default function SettingsPage() {
                     activePaidSubscriptionsList.map(item => {
                       const associatedDeploy = item.deploy
                         ? { suffix: item.deploy }
-                        : deployments.find(
-                            d =>
-                              normalizePlan((d as Deployment & { plan?: string }).plan) ===
-                              item.planName,
-                          );
+                        : deployments.find(d => resolveDeploymentPlan(d) === item.planName);
                       const deployText = associatedDeploy ? (
                         <span
                           className="font-semibold text-blue-600 underline hover:text-blue-800 cursor-pointer"

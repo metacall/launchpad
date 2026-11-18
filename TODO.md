@@ -71,18 +71,14 @@ Shipped in #32 (`src/app/config/runtime.ts`, `src/app/config/env.ts`, `src/main.
       `AppRouter.tsx`, but because `useAuth` (`src/features/auth/hooks/useAuth.tsx`)
       treats `isLocalMode()` as already signed in, so the route guard never redirects.
 
-Still open (none of these exist yet — verified against the current code):
+Still open:
 
-- [ ] Add a "Local mode — no account" empty state on the Settings page
-      (`src/features/settings/pages/SettingsPage.tsx` still renders the CLI Token,
-      password, and Billing History panels unconditionally).
-- [ ] Hide or disable the billing/CLI-token panels on Settings in local mode (same
-      file — `api.refresh()` and `api.changePassword()` have no local FaaS route to
-      call).
+- [x] Add a "Local mode — no account" empty state on the Settings page (shipped in #59 via `LocalModeSettings.tsx`)
+- [x] Hide or disable the billing/CLI-token panels on Settings in local mode (shipped in #59 via `SettingsPage.tsx`)
 - [ ] Add a "FaaS URL" field in Settings that writes to `localStorage['faas_url']`
       (`LS_FAAS_URL_KEY` in `src/shared/constants/index.ts` is read by `api-client.ts`
       but nothing in the UI writes to it yet).
 - [ ] Decide what Dashboard plan slots and the Deploy wizard's plan gate should do in
       local mode (currently ungated by `isLocalMode()` anywhere).
-- [ ] Decide what the Logs page should show when FaaS returns its
-      `"TODO: Implement Logs..."` stub instead of real log lines.
+- [x] Decide what the Logs page should show when FaaS returns its
+      `"TODO: Implement Logs..."` stub instead of real log lines (fixed: FaaS controller reads `logs/app.log`, and `LogsViewer` displays a clean empty state).

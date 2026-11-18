@@ -27,6 +27,7 @@ import {
   getPlanLabel,
   normalizePlan,
   readStoredPlan,
+  resolveDeploymentPlan,
   toDeployPlan,
   writeDeploymentPlan,
   writeStoredPlan,
@@ -114,7 +115,6 @@ export default function DeployWizardPage() {
   // Local State
   const [deploying, setDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
-  const submittingRef = useRef(false);
   const [deployTarget, setDeployTarget] = useState<{ suffix: string; startedAt: string } | null>(
     null,
   );
@@ -132,6 +132,7 @@ export default function DeployWizardPage() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loadingDeployments, setLoadingDeployments] = useState(true);
   const [slotOccupied, setSlotOccupied] = useState(false);
+  const submitInProgressRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -181,9 +182,7 @@ export default function DeployWizardPage() {
         navigate('/plans', { replace: true });
         return;
       }
-      const activeCount = deployments.filter(
-        d => normalizePlan((d as Deployment & { plan?: string }).plan) === plan,
-      ).length;
+      const activeCount = deployments.filter(d => resolveDeploymentPlan(d) === plan).length;
       if (activeCount >= (subscriptions[plan] || 0)) {
         setSlotOccupied(true);
       }
@@ -288,7 +287,7 @@ export default function DeployWizardPage() {
   };
 
   const handleDeploy = async () => {
-    if (submittingRef.current || !file) return;
+    if (submitInProgressRef.current || !file) return;
     setDeployError('');
 
     if (!file.name.toLowerCase().endsWith('.zip')) {
@@ -308,7 +307,7 @@ export default function DeployWizardPage() {
       return;
     }
 
-    submittingRef.current = true;
+    submitInProgressRef.current = true;
 
     // Compute deploy name from filename — no API needed yet
     const deployName = file.name
@@ -360,8 +359,8 @@ export default function DeployWizardPage() {
       setDeployError(`${action}: ${getSafeDeployError(error, envRows)}`);
       setDeployTarget(null);
     } finally {
-      submittingRef.current = false;
       setDeploying(false);
+      submitInProgressRef.current = false;
     }
   };
 

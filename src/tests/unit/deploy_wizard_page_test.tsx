@@ -257,4 +257,33 @@ describe('DeployWizardPage Toast Notifications', () => {
     });
     await waitFor(() => expect(vi.mocked(api.deploy)).toHaveBeenCalledTimes(1));
   });
+
+  it('displays slot occupied warning when plan slot is already in use', async () => {
+    const file = await makeZipFile();
+    vi.mocked(api.listSubscriptions).mockResolvedValueOnce({ Essential: 1 });
+    vi.mocked(api.inspect).mockResolvedValueOnce([
+      {
+        prefix: 'metacall',
+        suffix: 'existing-app',
+        version: 'v1',
+        packages: {},
+        ports: [],
+        status: 'ready',
+      } as never,
+    ]);
+    localStorage.setItem(
+      'faas_deployment_plan_map',
+      JSON.stringify({ 'existing-app': 'Essential' }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Essential' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Launchpad Slot Occupied')).toBeInTheDocument();
+    });
+  });
 });

@@ -68,6 +68,16 @@ describe('DeploymentsPage Toast Notifications', () => {
     });
   });
 
+  it('renders action buttons with 44px touch targets', () => {
+    renderPage();
+
+    const viewButton = screen.getByTitle('View Details');
+    const deleteButton = screen.getByTitle('Delete Deployment');
+
+    expect(viewButton).toHaveClass('w-11', 'h-11');
+    expect(deleteButton).toHaveClass('w-11', 'h-11');
+  });
+
   it('calls toast.error on failed deployment deletion', async () => {
     mockApiDelete.mockRejectedValueOnce(new Error('Network error'));
     renderPage();

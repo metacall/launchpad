@@ -85,4 +85,19 @@ describe('useAuth / AuthProvider', () => {
     expect(localStorage.getItem('faas_user_email')).toBeNull();
     expect(result.current.user).toBeNull();
   });
+
+  it('logout clears the saved VAT ID but keeps the FaaS URL', () => {
+    localStorage.setItem('faas_token', 'token-1');
+    localStorage.setItem('faas_user_email', 'alice@example.com');
+    localStorage.setItem('faas_vat_id', 'EE123456789');
+    localStorage.setItem('faas_url', 'http://localhost:9000');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    act(() => {
+      result.current.logout();
+    });
+
+    expect(localStorage.getItem('faas_vat_id')).toBeNull();
+    expect(localStorage.getItem('faas_url')).toBe('http://localhost:9000');
+  });
 });
