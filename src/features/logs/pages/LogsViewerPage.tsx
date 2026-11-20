@@ -8,7 +8,7 @@ import { PageLoading } from '@/shared/ui/LoadingState';
 import { LogsViewer } from '@/features/logs/components/LogsViewer';
 
 export default function LogsViewerPage() {
-  const { id: suffix } = useParams();
+  const { suffix } = useParams();
   const navigate = useNavigate();
 
   const [deployment, setDeployment] = useState<Deployment | null>(null);
