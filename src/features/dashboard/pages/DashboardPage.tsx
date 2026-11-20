@@ -141,7 +141,7 @@ function LaunchpadCard({ dep }: { dep: Deployment }) {
       </div>
       <div className="flex items-center justify-between px-6 py-3.5 hover:bg-gray-50 transition-colors">
         <span className="text-smd font-medium text-slate-700">Manage Function</span>
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wide">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-gray-50 text-emerald-700 border border-emerald-200 uppercase tracking-wide">
           Active
         </span>
       </div>

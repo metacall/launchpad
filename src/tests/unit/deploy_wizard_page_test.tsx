@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, waitFor, act, screen, fireEvent } from '@testing-library/react';
 import DeployWizardPage from '@/features/deployments/components/DeployWizard/index';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -285,5 +285,53 @@ describe('DeployWizardPage Toast Notifications', () => {
     await waitFor(() => {
       expect(screen.getByText('Launchpad Slot Occupied')).toBeInTheDocument();
     });
+  });
+
+  it('shows the server error as a toast and inline alert when upload is rejected', async () => {
+    const file = await makeZipFile();
+    const message =
+      "HTTP 400: Bad Request - There is an application with name 'test' already deployed, delete it first.";
+    vi.mocked(api.upload).mockRejectedValueOnce(new Error(message));
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Free' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Deploy' }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(message);
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+  });
+
+  it('shows an error when the selected file is not a valid zip', async () => {
+    const file = new File(['not a zip'], 'bad.zip', { type: 'application/zip' });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Free' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('not a valid .zip archive');
+  });
+
+  it('does not nest buttons inside the environment variables header', async () => {
+    const file = await makeZipFile();
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Free' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    const toggle = await screen.findByRole('button', { name: /Environment Variables/ });
+    fireEvent.click(toggle);
+    expect(await screen.findByTitle('Add environment variable')).toBeInTheDocument();
+    expect(document.querySelector('button button')).toBeNull();
   });
 });

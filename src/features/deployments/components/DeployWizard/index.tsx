@@ -610,21 +610,26 @@ export default function DeployWizardPage() {
               </div>
 
               <div className="mt-4 bg-white border border-slate-200 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setEnvExpanded(!envExpanded)}
-                  className="w-full px-4 py-2 border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-center justify-between"
-                >
-                  <h3 className="text-sm lg:text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                    <Code2 size={16} className="text-blue-600" strokeWidth={1.5} />
-                    Environment Variables
-                  </h3>
-                  <div className="flex items-center gap-2">
+                {/* Sibling buttons: a <button> must not be nested inside another <button>. */}
+                <div className="w-full border-b border-slate-100 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setEnvExpanded(!envExpanded)}
+                    aria-expanded={envExpanded}
+                    className="grow px-4 py-2 text-left hover:bg-slate-50 transition-colors"
+                  >
+                    <h3 className="text-sm lg:text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                      <Code2 size={16} className="text-blue-600" strokeWidth={1.5} />
+                      Environment Variables
+                    </h3>
+                  </button>
+                  <div className="flex items-center gap-2 pr-4">
                     {envExpanded && (
                       <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          setEnvRows([...envRows, { id: nextEnvId, name: '', value: '' }]);
-                        }}
+                        type="button"
+                        onClick={() =>
+                          setEnvRows([...envRows, { id: nextEnvId, name: '', value: '' }])
+                        }
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Add environment variable"
                       >
@@ -632,13 +637,24 @@ export default function DeployWizardPage() {
                         <span className="hidden sm:inline">Add Var</span>
                       </button>
                     )}
-                    <ChevronDown
-                      size={18}
-                      className={`text-slate-400 transition-transform duration-200 ${envExpanded ? 'rotate-180' : ''}`}
-                      strokeWidth={1.5}
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setEnvExpanded(!envExpanded)}
+                      aria-label={
+                        envExpanded
+                          ? 'Collapse environment variables'
+                          : 'Expand environment variables'
+                      }
+                      className="p-1 rounded hover:bg-slate-50 transition-colors"
+                    >
+                      <ChevronDown
+                        size={18}
+                        className={`text-slate-400 transition-transform duration-200 ${envExpanded ? 'rotate-180' : ''}`}
+                        strokeWidth={1.5}
+                      />
+                    </button>
                   </div>
-                </button>
+                </div>
 
                 {envExpanded && (
                   <div className="px-6 py-4 border-t border-slate-100 animate-in fade-in duration-200">
@@ -737,9 +753,25 @@ export default function DeployWizardPage() {
             {/* Footer Action */}
             <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50/80 mt-auto flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="flex-1 w-full">
-                <span className="sr-only" aria-live="polite">
-                  {deployError}
-                </span>
+                {deployError && (
+                  <div
+                    role="alert"
+                    className="w-full max-w-5xl flex items-center gap-2 text-xs text-red-600 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-20"
+                  >
+                    <button
+                      onClick={() => setDeployError('')}
+                      className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+                      aria-label="Clear error"
+                    >
+                      <X size={14} />
+                    </button>
+                    <span className="text-gray-400">|</span>
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={14} />
+                      <span>{deployError}</span>
+                    </div>
+                  </div>
+                )}
               </div>
               <button
                 onClick={handleDeploy}
