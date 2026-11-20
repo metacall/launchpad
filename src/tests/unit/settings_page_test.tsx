@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/hooks/useAuth';
 import SettingsPage from '@/features/settings/pages/SettingsPage';
 import { api } from '@/lib/api-client';
@@ -23,25 +23,19 @@ function AuthProbe() {
   return <div data-testid="auth-user">{user ? user.email : 'signed-out'}</div>;
 }
 
-describe('SettingsPage delete account', () => {
-  const originalLocation = window.location;
+// Exposes the current router location path for navigation assertions
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="router-path">{location.pathname}</div>;
+}
 
+describe('SettingsPage delete account', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem('faas_token', 'token-1');
     localStorage.setItem('faas_user_email', 'alice@example.com');
     localStorage.setItem('faas_vat_id', 'ES123');
-    // logout() redirects with window.location.href, which jsdom cannot navigate
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { ...originalLocation, href: 'http://localhost/settings' },
-    });
-  });
-
-  afterEach(() => {
-    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
-    vi.restoreAllMocks();
   });
 
   const renderPage = async () => {
@@ -49,6 +43,7 @@ describe('SettingsPage delete account', () => {
       <MemoryRouter initialEntries={['/settings']}>
         <AuthProvider>
           <AuthProbe />
+          <LocationProbe />
           <SettingsPage />
         </AuthProvider>
       </MemoryRouter>,
@@ -68,7 +63,9 @@ describe('SettingsPage delete account', () => {
     expect(localStorage.getItem('faas_token')).toBeNull();
     expect(localStorage.getItem('faas_user_email')).toBeNull();
     expect(localStorage.getItem('faas_vat_id')).toBeNull();
-    expect(window.location.href).toBe('/login');
+    await waitFor(() =>
+      expect(screen.getByTestId('router-path')).toHaveTextContent('/login'),
+    );
   });
 
   it('keeps the session and shows an error when server deletion fails', async () => {
@@ -82,7 +79,7 @@ describe('SettingsPage delete account', () => {
     expect(screen.getByTestId('auth-user')).toHaveTextContent('alice@example.com');
     expect(localStorage.getItem('faas_token')).toBe('token-1');
     expect(localStorage.getItem('faas_vat_id')).toBe('ES123');
-    expect(window.location.href).toBe('http://localhost/settings');
+    expect(screen.getByTestId('router-path')).toHaveTextContent('/settings');
   });
 
   it('keeps the session when the dialog is cancelled', async () => {
@@ -96,7 +93,7 @@ describe('SettingsPage delete account', () => {
     expect(localStorage.getItem('faas_user_email')).toBe('alice@example.com');
     expect(localStorage.getItem('faas_vat_id')).toBe('ES123');
     expect(api.deleteAccount).not.toHaveBeenCalled();
-    expect(window.location.href).toBe('http://localhost/settings');
+    expect(screen.getByTestId('router-path')).toHaveTextContent('/settings');
   });
 });
 
