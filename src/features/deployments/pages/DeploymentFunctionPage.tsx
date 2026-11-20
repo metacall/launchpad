@@ -11,6 +11,38 @@ import { CopyButton } from '@/shared/ui/CopyButton';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
 import { getPlanLabel, resolveDeploymentPlan } from '@/shared/lib/plan';
 import { toast } from 'sonner';
+import { useLogs } from '@/features/logs/hooks/useLogs';
+import { LogsViewer } from '@/features/logs/components/LogsViewer';
+
+type DetailSection = 'Overview' | 'Endpoints' | 'Packages' | 'Config' | 'Logs';
+
+const DETAIL_SECTIONS: DetailSection[] = ['Overview', 'Endpoints', 'Packages', 'Config', 'Logs'];
+
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 767px)').matches,
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateViewport = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+
+    mediaQuery.addEventListener('change', updateViewport);
+    return () => mediaQuery.removeEventListener('change', updateViewport);
+  }, []);
+
+  return isMobile;
+}
+
+function DeploymentLogsPanel({ suffix, prefix }: { suffix: string; prefix: string }) {
+  const { logs, error } = useLogs(suffix, prefix);
+  return <LogsViewer logs={logs} error={error} className="min-h-80" />;
+}
 
 // Helper components
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -46,6 +78,8 @@ export default function DeploymentDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState<DetailSection>('Overview');
+  const isMobileViewport = useIsMobileViewport();
   const fetchDeployment = useCallback(async () => {
     if (!suffix) return;
     setLoading(true);
@@ -135,6 +169,118 @@ export default function DeploymentDetailPage() {
     (acc, handles) => acc + handles.reduce((a, h) => a + (h.scope?.funcs?.length ?? 0), 0),
     0,
   );
+  const statsPanel = (
+    <div className="grid grid-cols-2 gap-2">
+      {[
+        { label: 'Functions', value: totalFns, icon: <Layers size={13} /> },
+        {
+          label: 'Packages',
+          value: Object.keys(deployment.packages ?? {}).length,
+          icon: <Box size={13} />,
+        },
+        {
+          label: 'Plan',
+          value: deploymentPlan,
+          icon: <Server size={13} />,
+          className: 'hidden sm:flex',
+        },
+      ].map(item => (
+        <div
+          key={item.label}
+          className={`flex flex-col gap-1 bg-gray-50 border-slate-200 rounded-lg px-3 py-2.5 ${item.className ?? ''}`}
+        >
+          <div className="flex items-center gap-1.5 text-slate-400">
+            {item.icon}
+            <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
+          </div>
+          <span
+            className={`font-bold text-slate-800 ${item.label === 'Plan' ? 'text-xs' : 'text-xl'}`}
+          >
+            {item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+  const endpointsPanel = (
+    <div className="flex flex-col gap-3 min-w-0">
+      <SectionTitle icon={<Globe size={13} />} title="Endpoints" />
+      <InfoRow label="Base HTTP URL">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex-1 min-w-0 bg-white border border-slate-200 px-2 py-1.5 font-mono text-[11px] text-slate-700 truncate">
+            {invokePath}
+          </div>
+          <div className="shrink-0">
+            <CopyButton text={invokePath} />
+          </div>
+        </div>
+      </InfoRow>
+    </div>
+  );
+  const packagesPanel = (
+    <div className="flex flex-col gap-3 min-w-0">
+      <SectionTitle icon={<Box size={13} />} title="Packages" />
+      {Object.entries(deployment.packages ?? {}).length === 0 ? (
+        <div className="p-3 bg-slate-100/50 rounded border border-slate-200">
+          <p className="text-xs text-slate-500">No packages deployed</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 mt-1">
+          {Object.entries(deployment.packages ?? {}).map(
+            ([lang, handles]) =>
+              handles.length > 0 && (
+                <InfoRow key={lang} label={lang}>
+                  <div className="flex flex-col gap-1.5 mt-0.5">
+                    {handles.map(handle => (
+                      <div
+                        key={handle.name}
+                        className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-white border border-slate-200 rounded-sm"
+                      >
+                        <span
+                          className="text-xs font-mono text-slate-700 truncate"
+                          title={handle.name}
+                        >
+                          {handle.name}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 rounded shrink-0">
+                          {handle.scope?.funcs?.length ?? 0} fns
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </InfoRow>
+              ),
+          )}
+        </div>
+      )}
+    </div>
+  );
+  const configPanel = (
+    <div className="flex flex-col gap-3 min-w-0">
+      <SectionTitle icon={<Server size={13} />} title="Configuration" />
+      {(deployment.ports ?? []).length > 0 && (
+        <InfoRow label="Exposed Ports">
+          <div className="flex flex-wrap gap-1.5 mt-0.5">
+            {deployment.ports.map(port => (
+              <span
+                key={port}
+                className="px-2 py-1 bg-white border border-slate-200 text-xs font-mono font-semibold text-slate-600"
+              >
+                {port}
+              </span>
+            ))}
+          </div>
+        </InfoRow>
+      )}
+
+      <div className="p-3 bg-slate-100/50 rounded border border-slate-200">
+        <p className="text-xs text-slate-500">Environment variables are unavailable</p>
+        <p className="text-[10px] text-slate-400 mt-1">
+          The deployment inspection response does not include environment variables.
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -170,10 +316,10 @@ export default function DeploymentDetailPage() {
                   <ArrowLeft size={15} />
                 </button>
 
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div>
                     <div className="flex items-center gap-2.5">
-                      <h1 className="text-lg font-bold text-slate-800 tracking-tight leading-none">
+                      <h1 className="max-w-[45vw] truncate text-lg font-bold text-slate-800 tracking-tight leading-none sm:max-w-none">
                         {deployment.suffix}
                       </h1>
                       {/* <StatusBadge status={deployment.status === 'fail' ? 'error' : deployment.status ?? 'create'} /> */}
@@ -229,132 +375,80 @@ export default function DeploymentDetailPage() {
             </div>
           </div>
 
+          {isMobileViewport && (
+            <nav
+              aria-label="Deployment details"
+              className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 py-2 md:hidden"
+            >
+              {DETAIL_SECTIONS.map(section => (
+                <button
+                  key={section}
+                  type="button"
+                  aria-current={activeSection === section ? 'page' : undefined}
+                  aria-controls="deployment-detail-panel"
+                  onClick={() => setActiveSection(section)}
+                  className={`shrink-0 rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${
+                    activeSection === section
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {section}
+                </button>
+              ))}
+            </nav>
+          )}
+
           {/* Body */}
-          <div className="flex flex-col md:flex-row flex-1 min-h-0">
-            {/* Left panel */}
-            <div className="hidden md:flex w-full md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-5 flex-col gap-6 bg-slate-50/40 overflow-y-auto">
-              {/* Quick stats */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: 'Functions', value: totalFns, icon: <Layers size={13} /> },
-                  {
-                    label: 'Packages',
-                    value: Object.keys(deployment.packages ?? {}).length,
-                    icon: <Box size={13} />,
-                  },
-                  {
-                    label: 'Plan',
-                    value: deploymentPlan,
-                    icon: <Server size={13} />,
-                    className: 'hidden sm:flex',
-                  },
-                ].map(item => (
-                  <div
-                    key={item.label}
-                    className={`flex flex-col gap-1 bg-gray-50 border-slate-200 rounded-lg px-3 py-2.5 ${item.className ?? ''}`}
-                  >
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      {item.icon}
-                      <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {item.label}
-                      </span>
-                    </div>
-                    <span
-                      className={`font-bold text-slate-800 ${item.label === 'Plan' ? 'text-xs' : 'text-xl'}`}
-                    >
-                      {item.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Endpoints (hidden on small screens to reduce clutter) */}
-              <div className="hidden md:flex flex-col gap-3">
-                <SectionTitle icon={<Globe size={13} />} title="Endpoints" />
-                <InfoRow label="Base HTTP URL">
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex-1 min-w-0 bg-white border border-slate-200 px-2 py-1.5 font-mono text-[11px] text-slate-700 truncate">
-                      {invokePath}
-                    </div>
-                    <div className="shrink-0">
-                      <CopyButton text={invokePath} />
-                    </div>
-                  </div>
-                </InfoRow>
-              </div>
-
-              {/* Packages / Files */}
-              <div className="hidden md:flex flex-col gap-3">
-                <SectionTitle icon={<Box size={13} />} title="Packages" />
-                {Object.entries(deployment.packages ?? {}).length === 0 ? (
-                  <div className="p-3 bg-slate-100/50 rounded border border-slate-200">
-                    <p className="text-xs text-slate-500">No packages deployed</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3 mt-1">
-                    {Object.entries(deployment.packages ?? {}).map(
-                      ([lang, handles]) =>
-                        handles.length > 0 && (
-                          <InfoRow key={lang} label={lang}>
-                            <div className="flex flex-col gap-1.5 mt-0.5">
-                              {handles.map(h => (
-                                <div
-                                  key={h.name}
-                                  className="flex items-center justify-between px-2.5 py-1.5 bg-white border border-slate-200 rounded-sm"
-                                >
-                                  <span
-                                    className="text-xs font-mono text-slate-700 truncate"
-                                    title={h.name}
-                                  >
-                                    {h.name}
-                                  </span>
-                                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 rounded">
-                                    {h.scope?.funcs?.length ?? 0} fns
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </InfoRow>
-                        ),
-                    )}
+          <div className="flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
+            {isMobileViewport ? (
+              <div
+                id="deployment-detail-panel"
+                role="tabpanel"
+                aria-label={activeSection}
+                className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4"
+              >
+                {activeSection === 'Overview' && (
+                  <div className="flex flex-col gap-4">
+                    {statsPanel}
+                    <FunctionTester
+                      deployment={deployment}
+                      onScrollProgressChange={setScrollProgress}
+                    />
                   </div>
                 )}
-              </div>
-
-              {/* Configuration */}
-              <div className="hidden md:flex flex-col gap-3">
-                <SectionTitle icon={<Server size={13} />} title="Configuration" />
-
-                {(deployment.ports || []).length > 0 && (
-                  <InfoRow label="Exposed Ports">
-                    <div className="flex flex-wrap gap-1.5 mt-0.5">
-                      {deployment.ports.map(p => (
-                        <span
-                          key={p}
-                          className="px-2 py-1 bg-white border border-slate-200 text-xs font-mono font-semibold text-slate-600"
-                        >
-                          {p}
-                        </span>
-                      ))}
-                    </div>
-                  </InfoRow>
-                )}
-
-                {(deployment.ports || []).length === 0 && (
-                  <div className="p-3 bg-slate-100/50 rounded border border-slate-200">
-                    <p className="text-xs text-slate-500">No configuration data available</p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Environment variables and additional settings may appear here
-                    </p>
-                  </div>
+                {activeSection === 'Endpoints' && endpointsPanel}
+                {activeSection === 'Packages' && packagesPanel}
+                {activeSection === 'Config' && configPanel}
+                {activeSection === 'Logs' && (
+                  <DeploymentLogsPanel suffix={deployment.suffix} prefix={deployment.prefix} />
                 )}
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Left panel */}
+                <div className="flex w-full md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-slate-100 p-5 flex-col gap-6 bg-slate-50/40 overflow-y-auto">
+                  {/* Quick stats */}
+                  {statsPanel}
 
-            {/* Right: function tester */}
-            <div className="flex-1 overflow-hidden min-h-0">
-              <FunctionTester deployment={deployment} onScrollProgressChange={setScrollProgress} />
-            </div>
+                  {endpointsPanel}
+
+                  {/* Packages / Files */}
+                  {packagesPanel}
+
+                  {/* Configuration */}
+                  {configPanel}
+                </div>
+
+                {/* Right: function tester */}
+                <div className="flex-1 overflow-hidden min-h-0">
+                  <FunctionTester
+                    deployment={deployment}
+                    onScrollProgressChange={setScrollProgress}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
