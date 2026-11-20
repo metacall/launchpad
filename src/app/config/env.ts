@@ -1,3 +1,4 @@
+import { LS_FAAS_URL_KEY } from '@/shared/constants';
 import { getRuntimeConfig } from './runtime';
 
 interface Env {
@@ -20,7 +21,8 @@ function buildTimeFaasUrl(): string {
 export const env: Env = {
   // Getter so the launchpad runtime config (loaded after module evaluation) is honored.
   get FAAS_URL() {
-    return getRuntimeConfig().faasUrl ?? buildTimeFaasUrl();
+    const savedUrl = typeof window !== 'undefined' ? localStorage.getItem(LS_FAAS_URL_KEY) : null;
+    return getRuntimeConfig().faasUrl ?? (savedUrl || buildTimeFaasUrl());
   },
   FAAS_TOKEN: (import.meta.env['VITE_FAAS_TOKEN'] as string | undefined) ?? 'local',
   MODE: import.meta.env.MODE,

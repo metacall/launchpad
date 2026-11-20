@@ -1,4 +1,5 @@
 import { ExternalLink, Server } from 'lucide-react';
+import { FaasUrlSettings } from './FaasUrlSettings';
 
 interface LocalModeSettingsProps {
   faasUrl: string;
@@ -46,6 +47,10 @@ export function LocalModeSettings({ faasUrl }: LocalModeSettingsProps) {
               <ExternalLink size={14} className="text-gray-400" />
             </a>
           </div>
+        </div>
+
+        <div className="max-w-2xl mt-8">
+          <FaasUrlSettings />
         </div>
       </div>
     </div>

@@ -43,7 +43,7 @@ function nonEmptyString(value: unknown): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
-function parseFaasUrl(value: unknown): string | undefined {
+export function parseFaasUrl(value: unknown): string | undefined {
   const raw = nonEmptyString(value);
   if (!raw) return undefined;
   try {
