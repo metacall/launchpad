@@ -145,7 +145,7 @@ describe('DeploymentFunctionPage Toast Notifications', () => {
     mockInspect.mockResolvedValueOnce(deploymentResponse as never);
     renderPage(375);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Config' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Config' }));
 
     expect(screen.getByText('8080')).toBeInTheDocument();
     expect(screen.getByText('Environment variables are unavailable')).toBeInTheDocument();
@@ -163,28 +163,29 @@ describe('DeploymentFunctionPage Toast Notifications', () => {
       renderPage(viewportWidth);
 
       expect(await screen.findByText('Function tester')).toBeInTheDocument();
-      expect(screen.getAllByRole('button', { name: 'Overview' })).toHaveLength(1);
+      expect(screen.getAllByRole('tab', { name: 'Overview' })).toHaveLength(1);
+      expect(screen.getByRole('button', { name: 'View Logs' })).toHaveClass('hidden', 'md:flex');
 
-      fireEvent.click(screen.getByRole('button', { name: 'Endpoints' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Endpoints' }));
       expect(screen.getByText('Base HTTP URL')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Endpoints' })).toHaveAttribute(
-        'aria-current',
-        'page',
+      expect(screen.getByRole('tab', { name: 'Endpoints' })).toHaveAttribute(
+        'aria-selected',
+        'true',
       );
       expect(screen.queryByText('Function tester')).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Packages' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Packages' }));
       expect(screen.getByText('No packages deployed')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Config' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Config' }));
       expect(screen.getByText('Exposed Ports')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Logs' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Logs' }));
       expect(screen.getByText('Waiting for log output…')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Overview' }));
+      fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
       expect(screen.getByText('Function tester')).toBeInTheDocument();
-      expect(screen.getByRole('navigation', { name: 'Deployment details' })).toHaveClass(
+      expect(screen.getByRole('tablist', { name: 'Deployment details' })).toHaveClass(
         'overflow-x-auto',
       );
     },
@@ -197,9 +198,8 @@ describe('DeploymentFunctionPage Toast Notifications', () => {
     expect(await screen.findByText('Function tester')).toBeInTheDocument();
     expect(screen.getByText('Base HTTP URL')).toBeInTheDocument();
     expect(screen.getByText('No packages deployed')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('navigation', { name: 'Deployment details' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('tablist', { name: 'Deployment details' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View Logs' })).toBeVisible();
   });
 });
 

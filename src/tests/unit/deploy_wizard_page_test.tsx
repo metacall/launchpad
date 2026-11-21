@@ -228,6 +228,53 @@ describe('DeployWizardPage Toast Notifications', () => {
     expect(screen.queryByText('/srv/metacall/private/runtime.log')).not.toBeInTheDocument();
   });
 
+  it('preserves and redacts backend error messages for 400/422 API errors', async () => {
+    const file = await makeZipFile();
+    vi.mocked(api.upload).mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          'HTTP 400: Bad Request - Missing runner for nodejs in /home/user/app with token bearer secret-tok',
+        ),
+        { status: 400 },
+      ),
+    );
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Free' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    const deployButton = await screen.findByRole('button', { name: 'Deploy' });
+    await waitFor(() => expect(deployButton).toBeEnabled());
+    fireEvent.click(deployButton);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Upload failed: HTTP 400: Bad Request - Missing runner for nodejs in [path] with token bearer [redacted]',
+    );
+    expect(screen.queryByText('/home/user/app')).not.toBeInTheDocument();
+    expect(screen.queryByText('secret-tok')).not.toBeInTheDocument();
+  });
+
+  it('falls back to generic text if 400/422 API error message is blank', async () => {
+    const file = await makeZipFile();
+    vi.mocked(api.upload).mockRejectedValueOnce(Object.assign(new Error('   '), { status: 422 }));
+
+    render(
+      <MemoryRouter initialEntries={[{ state: { file, plan: 'Free' } }]}>
+        <DeployWizardPage />
+      </MemoryRouter>,
+    );
+
+    const deployButton = await screen.findByRole('button', { name: 'Deploy' });
+    await waitFor(() => expect(deployButton).toBeEnabled());
+    fireEvent.click(deployButton);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Upload failed: The FaaS server rejected the request. Check the package configuration and try again.',
+    );
+  });
+
   it('prevents concurrent submissions while the upload request is pending', async () => {
     const file = await makeZipFile();
     let resolveUpload!: (resourceId: string) => void;
@@ -299,7 +346,9 @@ describe('DeployWizardPage Toast Notifications', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Deploy' }));
+    const deployButton = await screen.findByRole('button', { name: 'Deploy' });
+    await waitFor(() => expect(deployButton).toBeEnabled());
+    fireEvent.click(deployButton);
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(message);

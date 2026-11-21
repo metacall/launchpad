@@ -66,13 +66,33 @@ function buildTree(paths: string[]): TreeNode {
   return root;
 }
 
+function redactDeployError(rawMessage: string, envRows: EnvRow[]): string {
+  const line = rawMessage.split(/\r?\n/, 1)[0].trim();
+  if (!line) {
+    return '';
+  }
+  const secrets = envRows.map(row => row.value).filter(value => value.length > 0);
+  const redacted = secrets.reduce(
+    (safeMessage, secret) => safeMessage.split(secret).join('[redacted]'),
+    line,
+  );
+  return redacted
+    .replace(/\b(jwt|bearer)\s+\S+/gi, '$1 [redacted]')
+    .replace(/\b[A-Z]:\\(?:[^\s\\]+\\)*[^\s\\]*/gi, '[path]')
+    .replace(/\/(?:home|tmp|var|usr|app|workspace|Users)\/[^\s]*/gi, '[path]');
+}
+
 function getSafeDeployError(error: unknown, envRows: EnvRow[]): string {
   if (isApiError(error)) {
     if (!error.status) {
       return 'Unable to reach the FaaS server. Check your connection and try again.';
     }
     if (error.status === 400 || error.status === 422) {
-      return 'The FaaS server rejected the request. Check the package configuration and try again.';
+      const serverMessage = error.message ? redactDeployError(error.message, envRows) : '';
+      return (
+        serverMessage ||
+        'The FaaS server rejected the request. Check the package configuration and try again.'
+      );
     }
     if (error.status === 401 || error.status === 403) {
       return 'FaaS authorization failed. Check your access and try again.';
@@ -90,15 +110,7 @@ function getSafeDeployError(error: unknown, envRows: EnvRow[]): string {
     error instanceof Error
       ? error.message.split(/\r?\n/, 1)[0]
       : 'The operation could not be completed.';
-  const secrets = envRows.map(row => row.value).filter(value => value.length > 0);
-  const redacted = secrets.reduce(
-    (safeMessage, secret) => safeMessage.split(secret).join('[redacted]'),
-    message,
-  );
-  return redacted
-    .replace(/\b(jwt|bearer)\s+\S+/gi, '$1 [redacted]')
-    .replace(/\b[A-Z]:\\(?:[^\s\\]+\\)*[^\s\\]*/gi, '[path]')
-    .replace(/\/(?:home|tmp|var|usr|app|workspace|Users)\/[^\s]*/gi, '[path]');
+  return redactDeployError(message, envRows) || 'The operation could not be completed.';
 }
 
 export default function DeployWizardPage() {
@@ -228,7 +240,10 @@ export default function DeployWizardPage() {
         setSelectedPaths(new Set(filePaths));
         setDeployError('');
       } catch {
-        if (active) setDeployError('Unable to read this ZIP package. Choose a valid ZIP file.');
+        if (active)
+          setDeployError(
+            'Unable to read this ZIP package: not a valid .zip archive. Please choose a valid .zip file.',
+          );
       } finally {
         if (active) setLoadingZip(false);
       }
@@ -356,7 +371,9 @@ export default function DeployWizardPage() {
           : operation === 'deployment'
             ? 'Deployment request failed'
             : 'Package validation failed';
-      setDeployError(`${action}: ${getSafeDeployError(error, envRows)}`);
+      const safeError = getSafeDeployError(error, envRows);
+      toast.error(safeError);
+      setDeployError(`${action}: ${safeError}`);
       setDeployTarget(null);
     } finally {
       setDeploying(false);
@@ -753,25 +770,9 @@ export default function DeployWizardPage() {
             {/* Footer Action */}
             <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50/80 mt-auto flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="flex-1 w-full">
-                {deployError && (
-                  <div
-                    role="alert"
-                    className="w-full max-w-5xl flex items-center gap-2 text-xs text-red-600 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 z-20"
-                  >
-                    <button
-                      onClick={() => setDeployError('')}
-                      className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
-                      aria-label="Clear error"
-                    >
-                      <X size={14} />
-                    </button>
-                    <span className="text-gray-400">|</span>
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={14} />
-                      <span>{deployError}</span>
-                    </div>
-                  </div>
-                )}
+                <span className="sr-only" aria-live="polite">
+                  {deployError}
+                </span>
               </div>
               <button
                 onClick={handleDeploy}

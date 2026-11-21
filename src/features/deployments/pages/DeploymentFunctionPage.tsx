@@ -358,7 +358,7 @@ export default function DeploymentDetailPage() {
                 </button>
                 <button
                   onClick={() => navigate(`/deployments/${deployment.suffix}/logs`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors"
                 >
                   <ScrollText size={12} />
                   View Logs
@@ -376,7 +376,8 @@ export default function DeploymentDetailPage() {
           </div>
 
           {isMobileViewport && (
-            <nav
+            <div
+              role="tablist"
               aria-label="Deployment details"
               className="flex w-full shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 py-2 md:hidden"
             >
@@ -384,7 +385,8 @@ export default function DeploymentDetailPage() {
                 <button
                   key={section}
                   type="button"
-                  aria-current={activeSection === section ? 'page' : undefined}
+                  role="tab"
+                  aria-selected={activeSection === section}
                   aria-controls="deployment-detail-panel"
                   onClick={() => setActiveSection(section)}
                   className={`shrink-0 rounded px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-blue-600 ${
@@ -396,7 +398,7 @@ export default function DeploymentDetailPage() {
                   {section}
                 </button>
               ))}
-            </nav>
+            </div>
           )}
 
           {/* Body */}
