@@ -13,6 +13,7 @@ vi.mock('@/lib/api-client', () => ({
     listSubscriptionsDeploys: vi.fn().mockResolvedValue([]),
     changePassword: vi.fn(),
     deleteAccount: vi.fn(),
+    validate: vi.fn().mockResolvedValue(true),
   },
   getBaseUrl: vi.fn(() => 'http://localhost:9000'),
 }));
