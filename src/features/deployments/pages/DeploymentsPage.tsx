@@ -1,12 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Plus, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Home, Plus, X, AlertTriangle, RefreshCw, SearchX } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDeployments } from '@/features/deployments/hooks/useDeployments';
 import { api } from '@/lib/api-client';
 import { DeploymentTable } from '@/features/deployments/components/DeploymentTable';
+import { DeploymentFilterBar } from '@/features/deployments/components/DeploymentFilterBar';
+import {
+  DEFAULT_DEPLOYMENT_FILTERS,
+  getDeploymentLanguages,
+  getDeploymentStatuses,
+  hasActiveFilters,
+  selectDeployments,
+} from '@/features/deployments/lib/deploymentFilters';
+import type { DeploymentFilters } from '@/features/deployments/lib/deploymentFilters';
 import { LoadingOverlay } from '@/shared/ui/LoadingState';
 import { DeleteModal } from '@/shared/ui/DeleteModal';
+import { EmptyState } from '@/shared/ui/EmptyState';
 
 export default function DeploymentsPage() {
   const navigate = useNavigate();
@@ -15,6 +25,18 @@ export default function DeploymentsPage() {
   const [pendingDelete, setPending] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<DeploymentFilters>(DEFAULT_DEPLOYMENT_FILTERS);
+
+  const statuses = useMemo(() => getDeploymentStatuses(deployments), [deployments]);
+  const languages = useMemo(() => getDeploymentLanguages(deployments), [deployments]);
+  const visibleDeployments = useMemo(
+    () => selectDeployments(deployments, filters),
+    [deployments, filters],
+  );
+
+  function updateFilters(changes: Partial<DeploymentFilters>) {
+    setFilters(current => ({ ...current, ...changes }));
+  }
 
   // Surface whichever error is currently active
   const error = deleteError ?? pollError;
@@ -111,10 +133,43 @@ export default function DeploymentsPage() {
             </div>
           )}
 
+          {/* Search, filter and sort controls */}
+          <DeploymentFilterBar
+            filters={filters}
+            statuses={statuses}
+            languages={languages}
+            visibleCount={visibleDeployments.length}
+            totalCount={deployments.length}
+            onChange={updateFilters}
+            onReset={() => setFilters(DEFAULT_DEPLOYMENT_FILTERS)}
+          />
+
           {/* Table Container */}
           <div className="bg-white border border-gray-300 w-full relative">
             {loading && <LoadingOverlay message="Syncing network…" spinnerSize={16} />}
-            <DeploymentTable deployments={deployments} onDelete={suffix => setPending(suffix)} />
+            {visibleDeployments.length === 0 && deployments.length > 0 ? (
+              <EmptyState
+                title="No deployments match your filters"
+                description="Try a different search term or clear the filters to see all deployments."
+                icon={<SearchX size={28} />}
+                action={
+                  hasActiveFilters(filters) ? (
+                    <button
+                      type="button"
+                      onClick={() => setFilters(DEFAULT_DEPLOYMENT_FILTERS)}
+                      className="min-h-11 border border-slate-300 px-4 text-xs font-bold uppercase tracking-wider text-slate-700 transition-colors hover:bg-slate-100"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <DeploymentTable
+                deployments={visibleDeployments}
+                onDelete={suffix => setPending(suffix)}
+              />
+            )}
           </div>
         </div>
       </div>
