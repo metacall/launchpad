@@ -56,7 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(EMAIL_KEY);
     localStorage.removeItem('faas_vat_id');
     setUser(null);
-    window.location.href = '/login';
   }, []);
 
   const value = useMemo(
