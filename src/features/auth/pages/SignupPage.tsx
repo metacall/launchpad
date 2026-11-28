@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, X } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { getRedirectPath } from '@/lib/utils';
 
 export default function SignupPage() {
   const { signup } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [alias, setAlias] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +41,7 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signup(email, password, alias, captchaToken);
-      navigate('/', { replace: true });
+      navigate(getRedirectPath(location.state), { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed. Please try again.');
     } finally {
@@ -59,7 +61,11 @@ export default function SignupPage() {
         </div>
 
         <div className="flex space-x-6 text-sm font-medium">
-          <Link to="/login" className="text-gray-500 hover:text-blue-500 transition-colors">
+          <Link
+            to="/login"
+            state={location.state}
+            className="text-gray-500 hover:text-blue-500 transition-colors"
+          >
             Login
           </Link>
           <span className="text-blue-500 border-b-2 border-blue-500 pb-1 cursor-default">

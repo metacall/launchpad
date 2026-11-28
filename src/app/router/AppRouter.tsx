@@ -6,6 +6,7 @@ import LoginPage from '@/features/auth/pages/LoginPage';
 import SignupPage from '@/features/auth/pages/SignupPage';
 import { AppShell } from '@/shared/layout/AppShell';
 import { AuthLoadingPattern, RouteLoadingPattern } from '@/shared/ui/LoadingState';
+import { getRedirectPath } from '@/lib/utils';
 
 // Lazy-loaded components
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'));
@@ -64,7 +65,7 @@ function GuestRoute() {
   const location = useLocation();
 
   // Check if they were trying to go somewhere specific, otherwise default to "/"
-  const from = location.state?.from?.pathname || '/';
+  const from = getRedirectPath(location.state);
 
   if (loading) return <FullPageSpinner />;
   if (user) return <Navigate to={from} replace />;

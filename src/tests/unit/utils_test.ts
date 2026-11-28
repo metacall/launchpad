@@ -7,6 +7,7 @@ import {
   timeAgo,
   safeStringify,
   isValidEmail,
+  getRedirectPath,
 } from '@/lib/utils';
 
 describe('cn', () => {
@@ -101,5 +102,29 @@ describe('isValidEmail', () => {
     expect(isValidEmail('@missing-local.com')).toBe(false);
     expect(isValidEmail('missing-domain@')).toBe(false);
     expect(isValidEmail('')).toBe(false);
+  });
+});
+
+describe('getRedirectPath', () => {
+  it('falls back to the default path when there is no state', () => {
+    expect(getRedirectPath(undefined)).toBe('/');
+    expect(getRedirectPath(null)).toBe('/');
+    expect(getRedirectPath({})).toBe('/');
+  });
+
+  it('falls back to a custom default when provided', () => {
+    expect(getRedirectPath(undefined, '/deployments')).toBe('/deployments');
+  });
+
+  it('returns the original pathname from protected route state', () => {
+    const state = { from: { pathname: '/settings', search: '', hash: '' } };
+    expect(getRedirectPath(state)).toBe('/settings');
+  });
+
+  it('preserves search and hash when present', () => {
+    const state = {
+      from: { pathname: '/deployments/abc', search: '?tab=logs', hash: '#section' },
+    };
+    expect(getRedirectPath(state)).toBe('/deployments/abc?tab=logs#section');
   });
 });

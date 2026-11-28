@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import LoginPage from '@/features/auth/pages/LoginPage';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 // Mock Turnstile component to avoid running actual widget code in jsdom
 vi.mock('@marsidev/react-turnstile', () => ({
@@ -123,6 +123,75 @@ describe('LoginPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+    });
+  });
+
+  it('redirects to the originally requested route after login', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '');
+    mockLogin.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/login',
+            state: { from: { pathname: '/settings', search: '', hash: '' } },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<div>dashboard</div>} />
+          <Route path="/settings" element={<div>settings-page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Email/i), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    });
+
+    const loginBtn = screen
+      .getAllByRole('button', { name: /Login/i })
+      .find(btn => btn.getAttribute('type') === 'submit') as HTMLElement;
+    fireEvent.click(loginBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('settings-page')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to the dashboard when no origin route is in state', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '');
+    mockLogin.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/" element={<div>dashboard</div>} />
+          <Route path="/settings" element={<div>settings-page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Email/i), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    });
+
+    const loginBtn = screen
+      .getAllByRole('button', { name: /Login/i })
+      .find(btn => btn.getAttribute('type') === 'submit') as HTMLElement;
+    fireEvent.click(loginBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('dashboard')).toBeInTheDocument();
     });
   });
 });
