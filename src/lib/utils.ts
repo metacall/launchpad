@@ -46,6 +46,24 @@ export function safeStringify(value: unknown): string {
   }
 }
 
+/**
+ * Resolve the path to return to after authentication from a router location's
+ * state. `ProtectedRoute` stores the original location under `state.from`.
+ */
+interface RedirectLocation {
+  pathname?: string;
+  search?: string;
+  hash?: string;
+}
+
+export function getRedirectPath(state: unknown, fallback = '/'): string {
+  const from = (state as { from?: RedirectLocation } | null)?.from;
+
+  if (!from?.pathname) return fallback;
+
+  return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isValidEmail(email: string): boolean {

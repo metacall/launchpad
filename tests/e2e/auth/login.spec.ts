@@ -167,4 +167,34 @@ test.describe('Login Page — Auth Outcomes', () => {
     // Should redirect to the dashboard
     await expect(page).toHaveURL('/', { timeout: 10_000 });
   });
+
+  test('returns to the originally requested protected route after login', async ({ page }) => {
+    // Intercept POST /login to return a mock JWT token
+    await page.route('**/login**', async route => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ token: 'mock-jwt-success-token' }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Mock API calls that the settings page makes on load
+    await page.route('**/api/**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+
+    // Unauthenticated visit to a protected deep link should bounce to /login
+    await page.goto('/settings');
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+
+    const loginPage = new LoginPage(page);
+    await loginPage.login('test@metacall.io', 'validpassword');
+
+    // Should return to /settings instead of the dashboard
+    await expect(page).toHaveURL('/settings', { timeout: 10_000 });
+  });
 });

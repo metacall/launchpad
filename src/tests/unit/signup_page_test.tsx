@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SignupPage from '@/features/auth/pages/SignupPage';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 // Mock Turnstile component
 vi.mock('@marsidev/react-turnstile', () => ({
@@ -132,6 +132,48 @@ describe('SignupPage Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Passwords do not match/i)).toBeInTheDocument();
+    });
+  });
+
+  it('redirects to the originally requested route after signup', async () => {
+    vi.stubEnv('VITE_TURNSTILE_SITE_KEY', '');
+    mockSignup.mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: '/signup',
+            state: { from: { pathname: '/deployments', search: '', hash: '' } },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/" element={<div>dashboard</div>} />
+          <Route path="/deployments" element={<div>deployments-page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Alias'), {
+      target: { value: 'user123' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'password123' },
+    });
+    fireEvent.change(screen.getByLabelText('Password confirmation'), {
+      target: { value: 'password123' },
+    });
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Create Account/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('deployments-page')).toBeInTheDocument();
     });
   });
 });
